@@ -83,5 +83,35 @@ Use the **Step 2: Recommended Demo Flow** section in your Demo Generator for tai
 
 ---
 
+## Step 5: (Optional) Go Production
+
+Ready to take your demo further? Deploy it to **Vertex AI Agent Engine** and register it as an official agent within **Gemini Enterprise**.
+
+### 1. Enhance Your Project
+Run this in the your agent root directory (`adk_agent`):
+
+```bash
+uvx agent-starter-pack enhance
+```
+
+**Expected Interaction (Accept all defaults):**
+> Continue with enhancement? [Y/n]: **Y**  
+> Select base template (1): **[Enter]**  
+> Select agent directory (1): **[Enter]**  
+> select a deployment target: **1 (agent_engine)**  
+> select a CI/CD runner: **1 (simple)**  
+
+### 2. Deploy to Engine
+```bash
+make deploy
+```
+
+### 3. Register to Gemini Enterprise
+```bash
+make register-gemini-enterprise
+```
+
+---
+
 ### Need Help?
 Contact [ryotat@google.com](mailto:ryotat@google.com) or refer to the [LaunchMyBakery](https://github.com/google/mcp/tree/main/examples/launchmybakery) documentation.

@@ -280,6 +280,10 @@
           <div class="nav-dot"></div>
           Step 4: Run Demo
         </a>
+        <a href="#section-step5" class="nav-item" data-section="section-step5">
+          <div class="nav-dot"></div>
+          Step 5: Go Production
+        </a>
       </div>
     </aside>
 
@@ -777,6 +781,95 @@
             </div>
           </div>
         </section>
+
+        <!-- Step 5: Production Deployment (Optional) -->
+        <section id="section-step5"
+          class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-emerald-500/10">
+          <div class="flex items-center gap-3 mb-8">
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/40 text-sm">5</span>
+            <div>
+              <h2 class="text-xl font-bold text-white uppercase tracking-tight">Step 5: Deploy to Gemini Enterprise</h2>
+              <p class="text-[11px] text-gray-500">Scale your demo by deploying to Vertex AI Agent Engine</p>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+              <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                  </path>
+                </svg>
+                1. Enhance with Infrastructure
+              </h3>
+              <p class="text-[13px] text-gray-300 mb-4">
+                Run this in the agent root directory (<code
+                  class="text-emerald-400 bg-emerald-400/10 px-1 rounded">.../adk_agent</code>) to add production
+                templates.
+              </p>
+              <div class="relative group">
+                <pre
+                  class="bg-black/60 rounded-xl p-4 text-[12px] font-mono text-emerald-400 border border-white/5 overflow-x-auto">uvx agent-starter-pack enhance</pre>
+                <button onclick="copyRaw('uvx agent-starter-pack enhance')"
+                  class="absolute top-3 right-3 p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-xl border border-gray-700">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                    </path>
+                  </svg>
+                </button>
+              </div>
+              <p class="text-[11px] text-gray-500 mt-2 italic">Accept all default values when prompted.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+                <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">2. Deploy to Engine</h3>
+                <div class="relative group">
+                  <pre
+                    class="bg-black/60 rounded-xl p-4 text-[12px] font-mono text-white/80 border border-white/5 overflow-x-auto">make deploy</pre>
+                  <button onclick="copyRaw('make deploy')"
+                    class="absolute top-3 right-3 p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-xl border border-gray-700">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                      </path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+                <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">3. Register Agent</h3>
+                <div class="relative group">
+                  <pre
+                    class="bg-black/60 rounded-xl p-4 text-[12px] font-mono text-white/80 border border-white/5 overflow-x-auto">make register-gemini-enterprise</pre>
+                  <button onclick="copyRaw('make register-gemini-enterprise')"
+                    class="absolute top-3 right-3 p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-xl border border-gray-700">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                      </path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-4 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-start gap-3">
+              <svg class="w-5 h-5 text-sky-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <p class="text-[12px] text-sky-300 leading-relaxed">
+                After registration, the agent will appear in the <strong>Gemini Enterprise Admin Console</strong>. You
+                can then toggle it on to make it available to all users in your organization.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
 
@@ -1009,6 +1102,28 @@
     function downloadScript() { if (currentData) downloadFile(currentData.setupScript, 'setup.sh', 'text/x-shellscript'); }
     function downloadAllCSV() { if (currentData && currentData.rawTables) currentData.rawTables.forEach(t => downloadFile(t.csvData, `${t.tableName}.csv`, 'text/csv')); }
 
+    function copy(id) {
+      const el = document.getElementById(id);
+      let text = el.innerText;
+      // Extract prompt if inside quotes or 「」
+      const match = text.match(/["'「]([^"'」]+)["'」]/);
+      if (match) text = match[1];
+      copyRaw(text);
+    }
+
+    function copyRaw(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      const toast = document.getElementById('toast');
+      toast.className = 'show';
+      setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
+    }
+
     function showToast(message = 'Copied to clipboard!') {
       const toast = document.getElementById('toast');
       toast.innerText = message;
@@ -1017,7 +1132,6 @@
     }
 
     function copyText(text) {
-      navigator.clipboard.writeText(text);
       showToast();
     }
 
