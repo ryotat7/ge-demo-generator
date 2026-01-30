@@ -470,6 +470,50 @@ __TOOLS_EOF__
 cat <<'__AGENT_EOF__' > adk_agent/mcp_app/agent.py
 import os
 import dotenv
+from mcp_app import tools
+from google.adk.agents import LlmAgent
+
+dotenv.load_dotenv()
+
+PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
+
+maps_toolset = tools.get_maps_mcp_toolset()
+bigquery_toolset = tools.get_bigquery_mcp_toolset()
+
+# =============================================================================
+# AGENT CONFIGURATION (Zero-Formatting Instruction Pattern)
+# =============================================================================
+# We intentionally avoid Python f-strings or .format() here to prevent crashes
+# when the generated System Instruction contains literal curly braces {}.
+# =============================================================================
+
+base_instruction = """
+Help the user answer questions by strategically combining insights from BigQuery and Google Maps:
+
+1. **BigQuery Toolset**: Access data in the [PROJECT_ID].[DATASET_ID] dataset.
+   - Available Tools: \`execute_query_job\`, \`get_table\`, \`list_tables\`.
+[PUBLIC_DATASET_INFO]
+
+[GENERATED_SYSTEM_INSTRUCTION]
+
+2. **Maps Toolset**: Real-world location analysis.
+   - Available Tools: \`compute_routes\`, \`get_place\`, \`search_places\`, \`geocode\`, \`reverse_geocode\`.
+   - IMPORTANT: There is NO weather tool. Do not hallucinate or attempt to use weather services.
+
+---------------------------------------------------
+CRITICAL OPERATIONAL RULES:
+- SEQUENTIAL EXECUTION: Always perform tool calls one at a time. Do not attempt multiple tool calls in a single response turn.
+- RESULT BLOCKING: Wait for a tool's output before deciding on the next tool call.
+---------------------------------------------------
+"""
+
+public_info = "- Additional Dataset: Use [PUBLIC_DATASET_ID] for context." if "${publicDatasetId}" else ""
+instruction = base_instruction\
+    .replace("[PROJECT_ID]", PROJECT_ID)\
+    .replace("[DATASET_ID]", "${datasetId}")\
+    .replace("[PUBLIC_DATASET_INFO]", public_info.replace("[PUBLIC_DATASET_ID]", "${publicDatasetId}"))\
+    .replace("[GENERATED_SYSTEM_INSTRUCTION]", """${escapedInstruction}""")
+
 root_agent = LlmAgent(
     model=f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview",
     name='root_agent',
