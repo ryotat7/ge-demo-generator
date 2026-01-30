@@ -426,9 +426,23 @@ def get_bigquery_mcp_toolset():
     dotenv.load_dotenv()
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
     credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/bigquery"])
-    credentials.refresh(google.auth.transport.requests.Request())
+    
+    try:
+        credentials.refresh(google.auth.transport.requests.Request())
+        token = credentials.token
+    except Exception as e:
+        # Fallback for Cloud Shell environment where Metadata Server may return incomplete info
+        import subprocess
+        try:
+            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+        except Exception:
+            raise RuntimeError(f"Failed to refresh credentials and gcloud fallback failed: {e}")
+
     # Note: Use x-goog-user-project (lowercase) as per official template for stability
-    return MCPToolset(connection_params=StreamableHTTPConnectionParams(url=BIGQUERY_MCP_URL, headers={"Authorization": f"Bearer {credentials.token}", "x-goog-user-project": project_id}))
+    return MCPToolset(connection_params=StreamableHTTPConnectionParams(
+        url=BIGQUERY_MCP_URL, 
+        headers={"Authorization": f"Bearer {token}", "x-goog-user-project": project_id}
+    ))
 __TOOLS_EOF__
 
 cat <<'__AGENT_EOF__' > adk_agent/mcp_app/agent.py
