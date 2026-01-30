@@ -425,21 +425,29 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnecti
 MAPS_MCP_URL = "https://mapstools.googleapis.com/mcp" 
 BIGQUERY_MCP_URL = "https://bigquery.googleapis.com/mcp" 
 
-def get_credentials():
+def _apply_cloud_shell_patch():
+    """
+    Silent patch for google-auth RefreshError in Cloud Shell.
+    Ensures stable ADC even when Metadata Server is incomplete.
+    """
+    import google.auth
     import google.auth.transport.requests
     from google.oauth2.credentials import Credentials
-    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-    try:
-        credentials.refresh(google.auth.transport.requests.Request())
-    except Exception:
-        # Fallback for Cloud Shell environment where Metadata Server may return incomplete info
-        import subprocess
+    import subprocess
+    import os
+
+    _orig_refresh = google.auth.credentials.Credentials.refresh
+    def _patched_refresh(self, request):
         try:
-            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
-            credentials = Credentials(token)
+            return _orig_refresh(self, request)
         except Exception:
-            pass 
-    return credentials
+            try:
+                self.token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+            except:
+                raise
+    google.auth.credentials.Credentials.refresh = _patched_refresh
+
+_apply_cloud_shell_patch()
 
 def get_maps_mcp_toolset():
     dotenv.load_dotenv()
@@ -449,91 +457,21 @@ def get_maps_mcp_toolset():
 def get_bigquery_mcp_toolset():   
     dotenv.load_dotenv()
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
-    credentials = get_credentials()
-    if not getattr(credentials, 'token', None):
-        import google.auth.transport.requests
-        try:
-            credentials.refresh(google.auth.transport.requests.Request())
-        except:
-            pass
-    token = getattr(credentials, 'token', 'token_not_found')
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/bigquery"])
+    credentials.refresh(google.auth.transport.requests.Request())
     
     # Note: Use x-goog-user-project (lowercase) as per official template for stability
     return MCPToolset(connection_params=StreamableHTTPConnectionParams(
         url=BIGQUERY_MCP_URL, 
-        headers={"Authorization": f"Bearer {token}", "x-goog-user-project": project_id}
+        headers={"Authorization": f"Bearer {credentials.token}", "x-goog-user-project": project_id}
     ))
 __TOOLS_EOF__
 
 cat <<'__AGENT_EOF__' > adk_agent/mcp_app/agent.py
 import os
 import dotenv
-from mcp_app import tools
-from google.adk.agents import LlmAgent
-from google.adk.models import GoogleLLM
-from google.genai import Client
-
-dotenv.load_dotenv()
-PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
-
-# Initialize resilient credentials
-# In Cloud Shell, this falls back to gcloud CLI if metadata server fails
-# In Agent Engine, it uses standard service account discovery
-credentials = tools.get_credentials()
-
-# Create dedicated GenAI client for best stability across environments
-genai_client = Client(
-    vertexai=True,
-    project=PROJECT_ID,
-    credentials=credentials
-)
-
-model_resource = f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview"
-
-llm_model = GoogleLLM(
-    model=model_resource,
-    client=genai_client
-)
-
-maps_toolset = tools.get_maps_mcp_toolset()
-bigquery_toolset = tools.get_bigquery_mcp_toolset()
-
-# =============================================================================
-# AGENT CONFIGURATION (Zero-Formatting Instruction Pattern)
-# =============================================================================
-# We intentionally avoid Python f-strings or .format() here to prevent crashes
-# when the generated System Instruction contains literal curly braces {}.
-# =============================================================================
-
-base_instruction = """
-Help the user answer questions by strategically combining insights from BigQuery and Google Maps:
-
-1. **BigQuery Toolset**: Access data in the [PROJECT_ID].[DATASET_ID] dataset.
-   - Available Tools: \`execute_query_job\`, \`get_table\`, \`list_tables\`.
-[PUBLIC_DATASET_INFO]
-
-[GENERATED_SYSTEM_INSTRUCTION]
-
-2. **Maps Toolset**: Real-world location analysis.
-   - Available Tools: \`compute_routes\`, \`get_place\`, \`search_places\`, \`geocode\`, \`reverse_geocode\`.
-   - IMPORTANT: There is NO weather tool. Do not hallucinate or attempt to use weather services.
-
----------------------------------------------------
-CRITICAL OPERATIONAL RULES:
-- SEQUENTIAL EXECUTION: Always perform tool calls one at a time. Do not attempt multiple tool calls in a single response turn.
-- RESULT BLOCKING: Wait for a tool's output before deciding on the next tool call.
----------------------------------------------------
-"""
-
-public_info = "- Additional Dataset: Use [PUBLIC_DATASET_ID] for context." if "${publicDatasetId}" else ""
-instruction = base_instruction\
-    .replace("[PROJECT_ID]", PROJECT_ID)\
-    .replace("[DATASET_ID]", "${datasetId}")\
-    .replace("[PUBLIC_DATASET_INFO]", public_info.replace("[PUBLIC_DATASET_ID]", "${publicDatasetId}"))\
-    .replace("[GENERATED_SYSTEM_INSTRUCTION]", """${escapedInstruction}""")
-
 root_agent = LlmAgent(
-    model=llm_model,
+    model='gemini-3-pro-preview',
     name='root_agent',
     instruction=instruction,
     tools=[maps_toolset, bigquery_toolset]
