@@ -487,7 +487,7 @@ echo "🚀 Launching the Agent UI..."
 echo "   (Pre-configured for project: $PROJECT_ID)"
 echo ""
 
-cd ${dirName}/examples/launchmybakery/adk_agent
+cd adk_agent
 ../.venv/bin/adk web
 `;
 }
