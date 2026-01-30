@@ -24,14 +24,13 @@ First, we need to provision the BigQuery dataset and set up the agent code.
 
 1. Go back to the **ADK Agent Demo Generator** Web UI.
 2. Under **Step 2: Deployment & Live Demo**, click the **Copy** button next to the **Setup Script**.
-3. Paste the command into the Cloud Shell terminal and press **Enter**.
+3. **Paste the command** into the Cloud Shell terminal window (at the bottom of your screen) and press **Enter**.
 
-> [!TIP]
-> This script will create a directory named `my-ge-demo-[TIMESTAMP]`.
+> **Note:** This script will create a directory named `my-ge-demo-[TIMESTAMP]`.
 
-<walkthrough-test-code-block>
-# Paste your setup command here
-</walkthrough-test-code-block>
+```bash
+# Paste your setup command here in the terminal window below
+```
 
 ---
 
