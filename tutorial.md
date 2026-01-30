@@ -36,22 +36,29 @@ First, we need to provision the BigQuery dataset and set up the agent code.
 
 ## Step 2: Launch the Agent
 
-Now let's start the ADK web server to interact with your agent.
+Once the setup script from Step 1 finishes, it will display the exact command to launch your agent. **Please follow the instructions shown in your terminal.**
 
-### 📂 1. Navigate to the agent directory
-Run this command to automatically enter the generated demo folder:
+### � Reference: How to launch manually
 
-<walkthrough-test-code-block>
-# This command automatically finds and enters the latest demo directory
+If you need to restart the agent or navigate manually, use these commands:
+
+#### 1. Enter the Agent Directory
+You must be in the `adk_agent` folder inside your new demo directory. Replace `[YOUR_DEMO_DIR]` with the folder name created in Step 1 (e.g., `my-ge-demo-831afa90`).
+
+```bash
+# General pattern:
+cd [YOUR_DEMO_DIR]/examples/launchmybakery/adk_agent
+
+# Tip: You can use this to find and enter the latest demo folder automatically:
 cd $(ls -d my-ge-demo-*/ | head -n 1)examples/launchmybakery/adk_agent
-</walkthrough-test-code-block>
+```
 
-### 🚀 2. Start the ADK Server
-Launch the agent using the local virtual environment:
+#### 2. Start the Server
+Run the agent using the virtual environment installed by the script:
 
-<walkthrough-test-code-block>
+```bash
 ../.venv/bin/adk web
-</walkthrough-test-code-block>
+```
 
 ---
 
