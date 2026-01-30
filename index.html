@@ -325,30 +325,48 @@
                 </ul>
               </div>
 
-              <div class="relative">
+              <div class="relative h-full flex flex-col">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agent Runtime Architecture
                 </h3>
-                <div
-                  class="relative flex items-center justify-center min-h-[160px] bg-sky-900/10 rounded-2xl border border-sky-500/10">
-                  <svg class="w-full h-full" viewBox="0 0 400 180" fill="none">
-                    <path d="M120 90 L200 45 M120 90 L200 90 M120 90 L200 135" stroke="#334155" stroke-width="1.2"
-                      stroke-dasharray="3 3" />
-                    <path d="M300 90 L340 90 M300 135 L340 135" stroke="#334155" stroke-width="1.2" />
-                    <rect x="20" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
-                    <text x="70" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                      font-weight="600">ADK Agent</text>
-                    <rect x="200" y="25" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
-                      stroke-width="1" />
-                    <text x="250" y="43" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                      font-weight="600">Gemini 3 Pro</text>
-                    <rect x="200" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
-                      stroke-width="1" />
-                    <text x="250" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                <div class="flex-1 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 p-4">
+                  <svg class="w-full h-auto max-w-[440px]" viewBox="0 0 440 200" fill="none">
+                    <!-- Connections -->
+                    <g stroke="#334155" stroke-width="1.5" stroke-dasharray="4 4">
+                      <path d="M140 100 L220 50" />
+                      <path d="M140 100 L220 100" />
+                      <path d="M140 100 L220 150" />
+                    </g>
+                    <!-- ADK Agent Node -->
+                    <rect x="20" y="80" width="120" height="40" rx="10" fill="#0ea5e9" fill-opacity="0.1"
+                      stroke="#0ea5e9" stroke-width="1.5" />
+                    <text x="80" y="105" text-anchor="middle" fill="#38bdf8" font-family="Inter" font-size="10"
+                      font-weight="700">ADK Agent</text>
+
+                    <!-- Gemini Node -->
+                    <rect x="220" y="30" width="120" height="40" rx="10" fill="#f1f5f9" fill-opacity="0.05"
+                      stroke="#f1f5f9" stroke-opacity="0.2" stroke-width="1.5" />
+                    <text x="280" y="55" text-anchor="middle" fill="#f1f5f9" font-family="Inter" font-size="10"
+                      font-weight="600">Gemini 2.0 Flash</text>
+
+                    <!-- MCP BigQuery Node -->
+                    <rect x="220" y="80" width="120" height="40" rx="10" fill="#10b981" fill-opacity="0.1"
+                      stroke="#10b981" stroke-width="1.5" />
+                    <text x="280" y="105" text-anchor="middle" fill="#10b981" font-family="Inter" font-size="10"
                       font-weight="600">MCP BigQuery</text>
-                    <rect x="200" y="115" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
-                      stroke-width="1" />
-                    <text x="250" y="133" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+
+                    <!-- MCP Maps Node -->
+                    <rect x="220" y="130" width="120" height="40" rx="10" fill="#f59e0b" fill-opacity="0.1"
+                      stroke="#f59e0b" stroke-width="1.5" />
+                    <text x="280" y="155" text-anchor="middle" fill="#f59e0b" font-family="Inter" font-size="10"
                       font-weight="600">MCP Maps</text>
+
+                    <!-- User Client -->
+                    <circle cx="400" cy="100" r="25" fill="#f1f5f9" fill-opacity="0.05" stroke="#f1f5f9"
+                      stroke-opacity="0.2" />
+                    <path d="M400 90 A5 5 0 1 1 400 110 M390 115 A15 15 0 0 1 410 115" stroke="#f1f5f9"
+                      stroke-width="1.5" />
+                    <text x="400" y="145" text-anchor="middle" fill="#94a3b8" font-family="Inter"
+                      font-size="8">Developer</text>
                   </svg>
                 </div>
               </div>
