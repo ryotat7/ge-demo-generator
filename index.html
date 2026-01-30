@@ -493,7 +493,14 @@
                 <pre id="setupCommand"
                   class="bg-black/80 rounded-2xl p-8 pt-10 text-[12px] font-mono text-emerald-400 overflow-x-auto border border-sky-500/20 group-hover:border-sky-500/50 transition-all shadow-2xl leading-relaxed"></pre>
                 <div class="absolute top-4 right-4 flex gap-2">
-                  <button onclick="copy('setupCommand')"
+                  <button onclick="downloadScript()" title="Download as .sh file"
+                    class="p-2.5 rounded-xl bg-gray-800/80 text-gray-400 hover:text-sky-400 border border-gray-700 transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                  </button>
+                  <button onclick="copy('setupCommand')" title="Copy to clipboard"
                     class="p-2.5 rounded-xl bg-gray-800/80 text-gray-400 hover:text-white border border-gray-700 transition-all shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -524,9 +531,6 @@
                   </svg>
                   Step 2: Recommended Demo Flow (Tailored Prompts)
                 </label>
-                <button onclick="downloadPrompts()"
-                  class="text-[9px] text-emerald-400 font-bold border-b border-emerald-400/30 hover:text-emerald-300 transition-colors uppercase font-mono">Download
-                  Prompts (.txt)</button>
               </div>
               <div id="demoGuideSteps" class="grid grid-cols-1 gap-4">
                 <!-- Prompts will be injected here -->
@@ -753,12 +757,6 @@
     }
     function downloadScript() { if (currentData) downloadFile(currentData.setupScript, 'setup.sh', 'text/x-shellscript'); }
     function downloadAllCSV() { if (currentData && currentData.rawTables) currentData.rawTables.forEach(t => downloadFile(t.csvData, `${t.tableName}.csv`, 'text/csv')); }
-
-    function downloadPrompts() {
-      if (!currentData || !currentData.demoGuide) return;
-      const text = currentData.demoGuide.join('\n\n');
-      downloadFile(text, 'demo_prompts.txt', 'text/plain');
-    }
 
     function showToast(message = 'Copied to clipboard!') {
       const toast = document.getElementById('toast');
