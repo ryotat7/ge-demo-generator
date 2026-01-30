@@ -425,6 +425,22 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnecti
 MAPS_MCP_URL = "https://mapstools.googleapis.com/mcp" 
 BIGQUERY_MCP_URL = "https://bigquery.googleapis.com/mcp" 
 
+def get_credentials():
+    import google.auth.transport.requests
+    from google.oauth2.credentials import Credentials
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    try:
+        credentials.refresh(google.auth.transport.requests.Request())
+    except Exception:
+        # Fallback for Cloud Shell environment where Metadata Server may return incomplete info
+        import subprocess
+        try:
+            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+            credentials = Credentials(token)
+        except Exception:
+            pass 
+    return credentials
+
 def get_maps_mcp_toolset():
     dotenv.load_dotenv()
     maps_api_key = os.getenv('MAPS_API_KEY', 'no_api_found')
@@ -433,19 +449,15 @@ def get_maps_mcp_toolset():
 def get_bigquery_mcp_toolset():   
     dotenv.load_dotenv()
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
-    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/bigquery"])
-    
-    try:
-        credentials.refresh(google.auth.transport.requests.Request())
-        token = credentials.token
-    except Exception as e:
-        # Fallback for Cloud Shell environment where Metadata Server may return incomplete info
-        import subprocess
+    credentials = get_credentials()
+    if not getattr(credentials, 'token', None):
+        import google.auth.transport.requests
         try:
-            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
-        except Exception:
-            raise RuntimeError(f"Failed to refresh credentials and gcloud fallback failed: {e}")
-
+            credentials.refresh(google.auth.transport.requests.Request())
+        except:
+            pass
+    token = getattr(credentials, 'token', 'token_not_found')
+    
     # Note: Use x-goog-user-project (lowercase) as per official template for stability
     return MCPToolset(connection_params=StreamableHTTPConnectionParams(
         url=BIGQUERY_MCP_URL, 
@@ -458,9 +470,20 @@ import os
 import dotenv
 from mcp_app import tools
 from google.adk.agents import LlmAgent
+from google.adk.models import GoogleLLM
 
 dotenv.load_dotenv()
 PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
+
+# Initialize resilient credentials
+credentials = tools.get_credentials()
+model_resource = f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview"
+
+# Wrap model with explicit credentials for Cloud Shell stability
+llm_model = GoogleLLM(
+    model=model_resource,
+    credentials=credentials
+)
 
 maps_toolset = tools.get_maps_mcp_toolset()
 bigquery_toolset = tools.get_bigquery_mcp_toolset()
@@ -500,7 +523,7 @@ instruction = base_instruction\
     .replace("[GENERATED_SYSTEM_INSTRUCTION]", """${escapedInstruction}""")
 
 root_agent = LlmAgent(
-    model=f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview",
+    model=llm_model,
     name='root_agent',
     instruction=instruction,
     tools=[maps_toolset, bigquery_toolset]
