@@ -471,18 +471,28 @@ import dotenv
 from mcp_app import tools
 from google.adk.agents import LlmAgent
 from google.adk.models import GoogleLLM
+from google.genai import Client
 
 dotenv.load_dotenv()
 PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
 
 # Initialize resilient credentials
+# In Cloud Shell, this falls back to gcloud CLI if metadata server fails
+# In Agent Engine, it uses standard service account discovery
 credentials = tools.get_credentials()
+
+# Create dedicated GenAI client for best stability across environments
+genai_client = Client(
+    vertexai=True,
+    project=PROJECT_ID,
+    credentials=credentials
+)
+
 model_resource = f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview"
 
-# Wrap model with explicit credentials for Cloud Shell stability
 llm_model = GoogleLLM(
     model=model_resource,
-    credentials=credentials
+    client=genai_client
 )
 
 maps_toolset = tools.get_maps_mcp_toolset()
