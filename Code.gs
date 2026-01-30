@@ -427,23 +427,24 @@ BIGQUERY_MCP_URL = "https://bigquery.googleapis.com/mcp"
 
 def _apply_cloud_shell_patch():
     """
-    Silent patch for google-auth RefreshError in Cloud Shell.
-    Ensures stable ADC even when Metadata Server is incomplete.
+    Robust patch for google-auth RefreshError specifically in Cloud Shell.
+    Monkey-patches the Compute Engine credentials class used by Cloud Shell
+    to fallback to gcloud CLI if the metadata server returns incomplete info.
     """
     try:
-        import google.auth.credentials
+        import google.auth.compute_engine.credentials
         import subprocess
         
-        # Patch the base Credentials class to catch all refresh calls
-        target = google.auth.credentials.Credentials
+        target = google.auth.compute_engine.credentials.Credentials
         _orig_refresh = target.refresh
         
         def _patched_refresh(self, request):
             try:
                 return _orig_refresh(self, request)
             except Exception as e:
-                # If metadata server fails, fallback to gcloud
-                if "metadata server" in str(e).lower() or "service account info" in str(e).lower():
+                err_msg = str(e).lower()
+                # Catch the specific 'missing email' error from metadata server
+                if "metadata server" in err_msg or "service account info" in err_msg:
                     try:
                         self.token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
                         return
