@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADK Agent Demo Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .gradient-bg {
+      background: radial-gradient(circle at top right, #0c4a6e, #0f172a);
+    }
+
+    .spinner {
+      animation: rotate 2s linear infinite;
+    }
+
+    @keyframes rotate {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .idea-chip {
+      transition: all 0.2s;
+    }
+
+    .idea-chip:hover {
+      background: rgba(14, 165, 233, 0.2);
+      border-color: #0ea5e9;
+      color: white;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .highlight-glow {
+      box-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+    }
+
+    .step-completed {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .step-completed .step-icon {
+      background: #10b981;
+      color: white;
+      animation: none;
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen text-gray-100 font-inter">
+  <div class="flex h-screen overflow-hidden">
+    <!-- History Sidebar -->
+    <aside id="sidebar" class="w-72 glass border-r border-gray-700 p-4 hidden lg:block overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">Recent Demos</h2>
+        <button onclick="clearHistory()"
+          class="text-xs text-gray-500 hover:text-red-400 transition-colors">Clear</button>
+      </div>
+      <div id="historyList" class="space-y-3">
+        <!-- History items will be injected here -->
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-6 lg:p-10">
+      <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center lg:text-left relative">
+          <div class="absolute -top-4 -right-4 hidden lg:block text-right">
+            <div class="text-[10px] font-mono text-gray-400 underline decoration-sky-500/50 mb-1">go/ge-demo-generator
+            </div>
+            <div class="text-[9px] text-gray-500 font-medium tracking-tight">Author: <a
+                href="https://moma.corp.google.com/person/ryotat" target="_blank"
+                class="hover:text-sky-400 transition-colors border-b border-gray-700">ryotat@google.com</a></div>
+          </div>
+          <div
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-4">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+            </span>
+            Gemini Enterprise Demo Generator (go/ge-demo-generator)
+          </div>
+          <h1
+            class="text-4xl lg:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            ADK Agent Demo Generator
+          </h1>
+          <p
+            class="text-gray-400 text-lg max-w-2xl text-center lg:text-left mx-auto lg:mx-0 leading-relaxed font-light">
+            Instantly generate <b>custom demo environments</b> for any business domain. This tool <b>dynamically
+              synthesizes datasets</b> and configures agents tailored to your client's unique challenges.
+            It is based on the <a href="https://github.com/google/mcp/tree/main/examples/launchmybakery" target="_blank"
+              class="text-sky-400 hover:underline font-medium">LaunchMyBakery</a> repository. For a deep dive into the
+            architecture, see this <a href="https://adventofagents.com/day/11" target="_blank"
+              class="text-sky-400 hover:underline font-medium">architectural overview video</a>.
+          </p>
+        </header>
+
+        <!-- Demo Overview & Architecture -->
+        <section class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in border border-sky-500/20 shadow-2xl highlight-glow">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div>
+              <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
+                  </path>
+                </svg>
+                Dynamic Demo Synthesis
+              </h3>
+              <p class="text-[13px] text-gray-300 leading-relaxed mb-4">
+                Unlike static templates, this accelerator <b>auto-generates data</b> based on the customer problem you
+                input. It creates an orchestration between <b>BigQuery</b> macro-analytics and <b>Google Maps</b>
+                real-world grounding.
+              </p>
+              <p class="text-[12px] text-gray-400 leading-relaxed font-light">
+                The resulting environment features a Gemini 3 Pro agent equipped with custom-tailored synthetic
+                datasets:
+              </p>
+              <ul class="mt-4 space-y-3">
+                <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                  <span class="text-sky-400 mt-0.5">•</span>
+                  <span><b>Contextual Data:</b> Dynamically generated demographics, sales history, and market
+                    trends.</span>
+                </li>
+                <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                  <span class="text-sky-400 mt-0.5">•</span>
+                  <span><b>Tailored Reasoning:</b> A pre-configured agent with instructions specific to the business
+                    goal.</span>
+                </li>
+                <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                  <span class="text-sky-400 mt-0.5">•</span>
+                  <span><b>LaunchMyBakery Pattern:</b> Uses official ADK patterns for BQ and Maps toolsets.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="relative">
+              <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agent Runtime Architecture</h3>
+              <div
+                class="relative flex items-center justify-center min-h-[160px] bg-sky-900/10 rounded-2xl border border-sky-500/10">
+                <svg class="w-full h-full" viewBox="0 0 400 180" fill="none">
+                  <!-- Connectors -->
+                  <path d="M120 90 L200 45 M120 90 L200 90 M120 90 L200 135" stroke="#334155" stroke-width="1.2"
+                    stroke-dasharray="3 3" />
+                  <path d="M300 90 L340 90 M300 135 L340 135" stroke="#334155" stroke-width="1.2" />
+
+                  <!-- Nodes (LaunchMyBakery Whitebox Style) -->
+                  <rect x="20" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
+                  <text x="70" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                    font-weight="600">ADK Agent</text>
+                  <text x="70" y="98" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Local
+                    Instance</text>
+
+                  <rect x="200" y="25" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
+                  <text x="250" y="43" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                    font-weight="600">Gemini 3 Pro</text>
+                  <text x="250" y="53" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Vertex
+                    AI</text>
+
+                  <rect x="200" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
+                  <text x="250" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                    font-weight="600">MCP BigQuery</text>
+                  <text x="250" y="98" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Data
+                    Access</text>
+
+                  <rect x="200" y="115" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
+                  <text x="250" y="133" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                    font-weight="600">MCP Maps</text>
+                  <text x="250" y="143" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Geo
+                    Context</text>
+
+                  <rect x="340" y="70" width="50" height="40" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+                  <text x="365" y="95" text-anchor="middle" fill="#64748B" font-family="Inter" font-size="7">BQ</text>
+
+                  <rect x="340" y="115" width="50" height="40" rx="6" fill="#F8FAFC" stroke="#E2E8F0"
+                    stroke-width="1" />
+                  <text x="365" y="140" text-anchor="middle" fill="#64748B" font-family="Inter"
+                    font-size="7">Maps</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Generation Form -->
+        <section class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl">
+          <div class="mb-6">
+            <label class="block text-sm font-bold text-gray-300 uppercase tracking-tight mb-3">1. Describe the
+              Customer's Business Challenge</label>
+            <textarea id="userGoal" rows="4"
+              class="w-full bg-gray-900/50 border border-gray-700 rounded-2xl p-4 text-gray-100 placeholder-gray-600 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-inner"
+              placeholder="Example: How to help a retail chain in London optimize seasonal stock based on demographic shifts and regional foot traffic trends?"></textarea>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <span class="text-[10px] text-gray-500 font-bold uppercase mr-1">Industry Examples:</span>
+              <div id="sampleChips" class="flex flex-wrap gap-2 text-[9px]">
+                <!-- Samples will be injected here -->
+              </div>
+              <div class="ml-auto">
+                <select id="langSelector" onchange="updateSamples()"
+                  class="bg-gray-800 text-[10px] border border-gray-700 rounded-full px-3 py-1 outline-none text-sky-400 font-bold hover:border-sky-500/50 transition-colors shadow-sm">
+                  <option value="en">English</option>
+                  <option value="ja">日本語</option>
+                  <option value="zh">中文</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Options -->
+          <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-700 pt-8">
+            <div>
+              <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Synthesis
+                Volume</label>
+              <select id="rowCount"
+                class="w-full bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200">
+                <option value="50">50 Rows per Table</option>
+                <option value="100" selected>100 Rows per Table</option>
+                <option value="500">500 Rows per Table</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Dataset
+                Complexity</label>
+              <select id="tableCount"
+                class="w-full bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200">
+                <option value="1">Minimal (1 Table)</option>
+                <option value="2">Standard (2 Tables)</option>
+                <option value="3" selected>Advanced (3 Tables)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">External Data
+                Link</label>
+              <input id="publicDatasetId" type="text"
+                class="w-full bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-600"
+                placeholder="Optional: bigquery-public-data.xxx">
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <button id="generateBtn" onclick="generateDemo()"
+            class="mt-10 w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-sky-500/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-3 group">
+            <span id="btnText" class="text-lg uppercase tracking-widest">Synthesize Custom Demo Assets</span>
+            <svg id="btnSpinner" class="hidden w-6 h-6 spinner" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+              </path>
+            </svg>
+            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </section>
+
+        <!-- Progress Indicator -->
+        <section id="stepsSection" class="hidden glass rounded-2xl p-6 mb-10 fade-in border border-sky-500/30">
+          <div class="space-y-4">
+            <div id="progress-step-1" class="flex items-center gap-4 transition-all duration-300">
+              <div class="step-icon w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                1</div>
+              <div class="flex-1">
+                <p class="text-[11px] font-bold text-gray-300 uppercase tracking-tighter">Domain Logic & Data Synthesis
+                </p>
+                <p class="text-[9px] text-gray-500 step-message italic">Synthesizing...</p>
+              </div>
+            </div>
+            <div id="progress-step-2" class="flex items-center gap-4 transition-all duration-300">
+              <div class="step-icon w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                2</div>
+              <div class="flex-1">
+                <p class="text-[11px] font-bold text-gray-300 uppercase tracking-tighter">Deployable Bundle Packaging
+                </p>
+                <p class="text-[9px] text-gray-500 step-message italic">Waiting...</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection"
+          class="hidden glass rounded-2xl p-6 mb-10 border-l-4 border-red-500 fade-in text-red-100 text-xs font-mono">
+          <p id="errorMessage"></p>
+        </section>
+
+        <!-- Result Section -->
+        <section id="resultSection" class="hidden space-y-10 fade-in pb-24">
+
+          <!-- PHASE 1: Asset Review & Customization -->
+          <div class="glass rounded-3xl p-8 border border-white/5">
+            <div class="flex items-center gap-3 mb-8">
+              <div
+                class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold ring-1 ring-white/20">
+                A</div>
+              <h2 class="text-xl font-bold text-white uppercase tracking-tight">Review & Customize Assets</h2>
+            </div>
+
+            <!-- System Instruction -->
+            <div class="mb-10">
+              <label
+                class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                Refine Agent Persona & Instructions
+                <span
+                  class="text-[8px] font-normal lowercase opacity-60 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">Dynamic
+                  script update</span>
+              </label>
+              <textarea id="systemInstruction" oninput="updateScriptLocally()" rows="3"
+                class="w-full bg-black/40 border border-gray-700 rounded-2xl p-5 text-[11px] text-sky-200 font-mono transition-all focus:ring-1 focus:ring-sky-500 shadow-inner leading-relaxed"></textarea>
+            </div>
+
+            <!-- Data Preview -->
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest">Audit Synthesized
+                  Data Library</label>
+                <button onclick="downloadAllCSV()"
+                  class="text-[9px] text-sky-400 font-bold border-b border-sky-400/30 hover:text-sky-300 transition-colors uppercase font-mono">Download
+                  Raw CSVs</button>
+              </div>
+              <div id="dataPreview" class="space-y-4"></div>
+            </div>
+          </div>
+
+          <!-- PHASE 2: Deployment & Execution -->
+          <div
+            class="glass rounded-3xl p-10 border border-sky-500/40 shadow-2xl shadow-sky-900/20 bg-gradient-to-br from-sky-900/10 to-transparent">
+            <div class="flex items-center gap-3 mb-10">
+              <div
+                class="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-sky-500/20">
+                B</div>
+              <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Deployment & Live Demo</h2>
+            </div>
+
+            <!-- Step 1: Initialization -->
+            <div class="mb-12">
+              <div class="flex items-center justify-between mb-4">
+                <label
+                  class="block text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                  </svg>
+                  Step 1: Execute in Google Cloud Shell
+                </label>
+                <a href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_tutorial=tutorial.md&cloudshell_git_repo=https://github.com/ryotat7/ge-demo-generator.git"
+                  target="_blank" rel="noopener noreferrer"
+                  class="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-lg text-[10px] transition-all shadow-md flex items-center gap-2">
+                  LAUNCH TUTORIAL
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                  </svg>
+                </a>
+              </div>
+
+              <div class="relative group mb-6">
+                <div
+                  class="absolute -top-3 left-6 px-3 py-1 bg-gray-800 text-[9px] font-mono text-gray-500 rounded border border-gray-700">
+                  Setup Script</div>
+                <pre id="setupCommand"
+                  class="bg-black/80 rounded-2xl p-8 pt-10 text-[12px] font-mono text-emerald-400 overflow-x-auto border border-sky-500/20 group-hover:border-sky-500/50 transition-all shadow-2xl leading-relaxed"></pre>
+                <div class="absolute top-4 right-4 flex gap-2">
+                  <button onclick="copy('setupCommand')"
+                    class="p-2.5 rounded-xl bg-gray-800/80 text-gray-400 hover:text-white border border-gray-700 transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                      </path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p class="text-[10px] text-gray-500 flex items-center gap-2 px-2">
+                <svg class="w-3 h-3 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                This command will install the ADK, configure BigQuery and Maps MCP servers, and push generated datasets.
+              </p>
+            </div>
+
+            <!-- Step 2: Interactive Guide -->
+            <div>
+              <label
+                class="block text-[11px] font-bold text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                  </path>
+                </svg>
+                Step 2: Recommended Demo Flow (Tailored Prompts)
+              </label>
+              <div id="demoGuideSteps" class="grid grid-cols-1 gap-4">
+                <!-- Prompts will be injected here -->
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let currentData = null;
+
+    const SAMPLES = {
+      en: [
+        { label: "📉 SaaS Churn", text: "Global SaaS churn analysis and customer retention strategy using historical usage patterns." },
+        { label: "🏙️ NY Retail", text: "Retail optimization for Manhattan stores by correlating foot traffic, sales, and local weather." },
+        { label: "📦 Supply Chain", text: "Factory downtime prediction and inventory optimization based on parts failure history." }
+      ],
+      ja: [
+        { label: "🏪 小売店売上", text: "東京都内の小売店売上分析と、気象データを組み合わせた在庫最適化および需要予測デモ。" },
+        { label: "🏨 ホテル需要", text: "観光都市におけるホテルの稼働率予測と、周辺イベントデータを活用した価格動向分析。" },
+        { label: "🚚 物流効率化", text: "配送ルートの遅延予測と、トラフィックパターンに基づいた燃料効率の最適化デモ。" }
+      ],
+      zh: [
+        { label: "🛒 零售分析", text: "零售销售分析和结合天气数据的库存优化" },
+        { label: "📉 客户流失", text: "全球化产品的SaaS订阅流失分析和收入预测" },
+        { label: "🏗️ 供应链", text: "全球制造企业的供应链优化和库存管理" }
+      ],
+      fr: [
+        { label: "📊 Ventes Détail", text: "Analyse des ventes au détail et optimisation des stocks combinée aux données météorologiques" },
+        { label: "🚛 Chaîne Logistique", text: "Optimisation de la chaîne logistique et gestion des stocks pour un fabricant mondial" },
+        { label: "💎 Luxe & Trends", text: "Analyse des sentiments sur les réseaux sociaux et découverte de trends pour une marque de luxe" }
+      ],
+      de: [
+        { label: "📈 Einzelhandel", text: "Einzelhandelsumsatzanalyse und Bestandsoptimierung kombiniert mit Wetterdaten" },
+        { label: "🏭 Produktion", text: "Vorausschauende Wartung und Ausfallzeitprognose basierend auf Produktionsdaten" },
+        { label: "🏦 Fintech Risiko", text: "Finanzielle Risikobewertung und Optimierung von Anlageportfolios" }
+      ],
+      es: [
+        { label: "🏪 Venta Minorista", text: "Análisis de ventas minoristas y optimización de inventario combinados con datos meteorológicos" },
+        { label: "📦 Cadena de Suministro", text: "Optimización de la cadena de suministro y gestion de inventario para un fabricante global" },
+        { label: "🍷 Exportación", text: "Análisis de mercados internacionales y predicción de demanda para exportación agrícola" }
+      ]
+    };
+
+    function updateSamples() {
+      const lang = document.getElementById('langSelector').value;
+      const container = document.getElementById('sampleChips');
+      if (!container) return;
+      container.innerHTML = '';
+      if (SAMPLES[lang]) {
+        SAMPLES[lang].forEach((sample, i) => {
+          const btn = document.createElement('button');
+          btn.onclick = () => setIdea(sample.text);
+          btn.className = "idea-chip px-3 py-1.5 rounded-full glass border border-gray-700/50 text-gray-400 hover:text-white transition-all text-[10px] font-medium";
+          btn.innerText = sample.label;
+          container.appendChild(btn);
+        });
+      }
+    }
+
+    function setIdea(text) {
+      const el = document.getElementById('userGoal');
+      el.value = text;
+      el.classList.add('highlight-glow');
+      setTimeout(() => el.classList.remove('highlight-glow'), 1000);
+    }
+
+    function generateDemo() {
+      const userGoal = document.getElementById('userGoal').value;
+      if (!userGoal) return alert('Goal required.');
+      const options = { rowCount: document.getElementById('rowCount').value, tableCount: document.getElementById('tableCount').value, publicDatasetId: document.getElementById('publicDatasetId').value };
+
+      const stepsSection = document.getElementById('stepsSection');
+      stepsSection.classList.remove('hidden');
+      document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.add('hidden');
+
+      // Reset progress UI
+      const s1 = document.getElementById('progress-step-1');
+      const s2 = document.getElementById('progress-step-2');
+      s1.className = 'flex items-center gap-4 transition-all duration-300';
+      s2.className = 'flex items-center gap-4 transition-all duration-300';
+      s1.querySelector('.step-icon').className = 'step-icon w-6 h-6 rounded bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold animate-pulse';
+      s1.querySelector('.step-message').innerText = 'Synthesizing...';
+      s2.querySelector('.step-message').innerText = 'Waiting...';
+
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('btnSpinner').classList.remove('hidden');
+      document.getElementById('btnText').innerText = 'SYNTHESIZING...';
+
+      // Simulate step 2 animation shortly after start
+      setTimeout(() => {
+        s1.classList.add('step-completed');
+        s1.querySelector('.step-message').innerText = 'Logic synthesis successful';
+        s2.querySelector('.step-icon').className = 'step-icon w-6 h-6 rounded bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold animate-pulse';
+        s2.querySelector('.step-message').innerText = 'Bundling assets...';
+      }, 5000);
+
+      google.script.run
+        .withSuccessHandler(res => {
+          document.getElementById('generateBtn').disabled = false;
+          document.getElementById('btnSpinner').classList.add('hidden');
+          document.getElementById('btnText').innerText = 'Synthesize Custom Demo Assets';
+
+          if (!res.success) return onFailure(res.error);
+
+          // Complete animation
+          s2.classList.add('step-completed');
+          s2.querySelector('.step-message').innerText = 'Bundle ready';
+
+          setTimeout(() => {
+            stepsSection.classList.add('hidden');
+            currentData = res;
+            showFinalResult(res);
+            loadHistory();
+          }, 800);
+        })
+        .withFailureHandler(onFailure)
+        .generateDemo(userGoal, options);
+    }
+
+    function onFailure(err) {
+      document.getElementById('generateBtn').disabled = false;
+      document.getElementById('btnSpinner').classList.add('hidden');
+      document.getElementById('stepsSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.remove('hidden');
+      document.getElementById('errorMessage').innerText = err;
+    }
+
+    function showFinalResult(res) {
+      document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > setup.sh\n${res.setupScript}\n__SETUP_SH__\nbash setup.sh`;
+      document.getElementById('systemInstruction').value = res.systemInstruction;
+
+      // Guide
+      const guideContainer = document.getElementById('demoGuideSteps');
+      guideContainer.innerHTML = '';
+      if (res.demoGuide && res.demoGuide.length) {
+        res.demoGuide.forEach((step, i) => {
+          const div = document.createElement('div');
+          div.className = "flex items-start gap-4 p-5 rounded-2xl bg-black/40 border border-white/5 group hover:border-emerald-500/30 transition-all shadow-xl cursor-pointer";
+          div.onclick = () => { navigator.clipboard.writeText(step); alert('Prompt copied!'); };
+          div.innerHTML = `
+               <div class="shrink-0 flex flex-col items-center">
+                  <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 w-6 h-6 rounded-lg flex items-center justify-center shadow-inner">${i + 1}</span>
+                  <div class="w-px h-full bg-white/5 mt-2 group-last:hidden"></div>
+               </div>
+               <div class="flex-1">
+                  <p class="text-[12px] text-gray-200 select-all leading-relaxed">${step}</p>
+                  <div class="mt-3 flex items-center gap-2 text-[9px] text-gray-500 font-mono uppercase">
+                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                     Click to copy prompt
+                  </div>
+               </div>
+            `;
+          guideContainer.appendChild(div);
+        });
+      }
+
+      // Preview
+      const container = document.getElementById('dataPreview');
+      container.innerHTML = '';
+      res.dataPreview.forEach(table => {
+        const div = document.createElement('div');
+        div.className = 'glass rounded-xl overflow-hidden border border-white/5 shadow-2xl mb-6 bg-black/20';
+        let html = `<div class="bg-white/5 px-4 py-2 flex items-center justify-between border-b border-white/5"><span class="text-[10px] font-bold text-sky-400 uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10">${table.tableName}</span><span class="text-[9px] text-gray-500 font-mono">${table.rows.length} rows synthesized</span></div>`;
+        html += `<div class="overflow-x-auto"><table class="w-full text-[10px] text-left"><thead class="bg-black/20 text-gray-500"><tr>`;
+        table.headers.forEach(h => html += `<th class="px-4 py-3 font-semibold border-r border-white/5 last:border-0 uppercase tracking-tighter">${h}</th>`);
+        html += `</tr></thead><tbody class="divide-y divide-white/5">`;
+        table.rows.forEach(row => {
+          html += `<tr class="hover:bg-white/5 transition-colors">`;
+          table.headers.forEach(h => html += `<td class="px-4 py-2.5 text-gray-400 font-mono border-r border-white/5 last:border-0">${row[h]}</td>`);
+          html += `</tr>`;
+        });
+        html += `</tbody></table></div>`;
+        div.innerHTML = html;
+        container.appendChild(div);
+      });
+      document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function updateScriptLocally() {
+      const instr = document.getElementById('systemInstruction').value;
+      google.script.run
+        .withSuccessHandler(newScript => {
+          currentData.setupScript = newScript;
+          document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > setup.sh\n${newScript}\n__SETUP_SH__\nbash setup.sh`;
+        })
+        .updateSystemInstruction(currentData.setupScript, instr);
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    function downloadScript() { if (currentData) downloadFile(currentData.setupScript, 'setup.sh', 'text/x-shellscript'); }
+    function downloadAllCSV() { if (currentData && currentData.rawTables) currentData.rawTables.forEach(t => downloadFile(t.csvData, `${t.tableName}.csv`, 'text/csv')); }
+    function copy(id) { const el = document.getElementById(id); navigator.clipboard.writeText(el.innerText || el.value); alert('Copied to clipboard!'); }
+
+    function loadHistory() {
+      google.script.run.withSuccessHandler(history => {
+        const list = document.getElementById('historyList');
+        if (!list) return;
+        list.innerHTML = '';
+        if (history && history.length) {
+          history.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'glass p-3 rounded-xl border border-white/5 hover:border-sky-500/50 cursor-pointer transition-all group shadow-sm bg-black/20';
+            div.innerHTML = `<div class="text-[9px] text-gray-600 mb-1 font-mono">${new Date(item.timestamp).toLocaleDateString()}</div><div class="text-[10px] text-gray-400 line-clamp-2 group-hover:text-white tracking-tight">${item.userGoal}</div>`;
+            list.appendChild(div);
+          });
+        }
+      }).getHistory();
+    }
+    function clearHistory() { if (confirm('Clear history?')) google.script.run.withSuccessHandler(loadHistory).clearHistory(); }
+
+    window.onload = () => {
+      loadHistory();
+      updateSamples();
+    };
+  </script>
+</body>
+
+</html>
