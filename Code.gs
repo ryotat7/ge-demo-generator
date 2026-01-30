@@ -430,22 +430,29 @@ def _apply_cloud_shell_patch():
     Silent patch for google-auth RefreshError in Cloud Shell.
     Ensures stable ADC even when Metadata Server is incomplete.
     """
-    import google.auth
-    import google.auth.transport.requests
-    from google.oauth2.credentials import Credentials
-    import subprocess
-    import os
-
-    _orig_refresh = google.auth.credentials.Credentials.refresh
-    def _patched_refresh(self, request):
-        try:
-            return _orig_refresh(self, request)
-        except Exception:
+    try:
+        import google.auth.credentials
+        import subprocess
+        
+        # Patch the base Credentials class to catch all refresh calls
+        target = google.auth.credentials.Credentials
+        _orig_refresh = target.refresh
+        
+        def _patched_refresh(self, request):
             try:
-                self.token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
-            except:
+                return _orig_refresh(self, request)
+            except Exception as e:
+                # If metadata server fails, fallback to gcloud
+                if "metadata server" in str(e).lower() or "service account info" in str(e).lower():
+                    try:
+                        self.token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+                        return
+                    except:
+                        pass
                 raise
-    google.auth.credentials.Credentials.refresh = _patched_refresh
+        target.refresh = _patched_refresh
+    except:
+        pass
 
 _apply_cloud_shell_patch()
 
@@ -458,12 +465,22 @@ def get_bigquery_mcp_toolset():
     dotenv.load_dotenv()
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'project_not_set')
     credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/bigquery"])
-    credentials.refresh(google.auth.transport.requests.Request())
     
+    try:
+        credentials.refresh(google.auth.transport.requests.Request())
+    except:
+        # The patch above should handle it, but we add a local fallback just in case
+        if not getattr(credentials, 'token', None):
+            import subprocess
+            try:
+                credentials.token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+            except:
+                pass
+
     # Note: Use x-goog-user-project (lowercase) as per official template for stability
     return MCPToolset(connection_params=StreamableHTTPConnectionParams(
         url=BIGQUERY_MCP_URL, 
-        headers={"Authorization": f"Bearer {credentials.token}", "x-goog-user-project": project_id}
+        headers={"Authorization": f"Bearer {getattr(credentials, 'token', '')}", "x-goog-user-project": project_id}
     ))
 __TOOLS_EOF__
 
