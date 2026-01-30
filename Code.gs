@@ -471,7 +471,7 @@ cat <<'__AGENT_EOF__' > adk_agent/mcp_app/agent.py
 import os
 import dotenv
 root_agent = LlmAgent(
-    model='gemini-3-pro-preview',
+    model=f"projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3-pro-preview",
     name='root_agent',
     instruction=instruction,
     tools=[maps_toolset, bigquery_toolset]
