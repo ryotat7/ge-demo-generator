@@ -4,66 +4,78 @@ Welcome! This tutorial will guide you through the setup and execution of your sy
 
 ## Prerequisites
 
-Before we begin, ensure you have the necessary APIs enabled in your Google Cloud project.
+Before we begin, ensure you have the necessary APIs enabled and the correct project selected.
 
 <walkthrough-project-setup>
 </walkthrough-project-setup>
+
+### 🛠️ Set Your Project
+Ensure your Cloud Shell is targeting the correct project:
+
+<walkthrough-test-code-block>
+gcloud config set project {{project-id}}
+</walkthrough-test-code-block>
+
+---
 
 ## Step 1: Provision Demo Environment
 
 First, we need to provision the BigQuery dataset and set up the agent code. 
 
 1. Go back to the **ADK Agent Demo Generator** Web UI.
-2. Under **Step 1: Execute in Google Cloud Shell**, click the **Copy** button next to the **Setup Script**.
-3. Paste the command into the Cloud Shell terminal below and press **Enter**.
+2. Under **Step 2: Deployment & Live Demo**, click the **Copy** button next to the **Setup Script**.
+3. Paste the command into the Cloud Shell terminal and press **Enter**.
+
+> [!TIP]
+> This script will create a directory named `my-ge-demo-[TIMESTAMP]`.
 
 <walkthrough-test-code-block>
 # Paste your setup command here
 </walkthrough-test-code-block>
 
-## Step 2: Authentication
+---
 
-The agent requires Application Default Credentials (ADC) to access Vertex AI and BigQuery on your behalf.
+## Step 2: Launch the Agent
 
-Run the following command and follow the browser-based login flow:
+Now let's start the ADK web server to interact with your agent.
+
+### 📂 1. Navigate to the agent directory
+Run this command to automatically enter the generated demo folder:
 
 <walkthrough-test-code-block>
-gcloud auth application-default login
+# This command automatically finds and enters the latest demo directory
+cd $(ls -d my-ge-demo-*/ | head -n 1)examples/launchmybakery/adk_agent
 </walkthrough-test-code-block>
 
-## Step 3: Launch the Agent
+### 🚀 2. Start the ADK Server
+Launch the agent using the local virtual environment:
 
-Now that the environment is provisioned and authenticated, let's start the ADK web server.
+<walkthrough-test-code-block>
+../.venv/bin/adk web
+</walkthrough-test-code-block>
 
-1. Navigate to the agent directory:
-   <walkthrough-test-code-block>
-   # Note: Replace [DIR_NAME] if you renamed your demo, usually it's my-ge-demo-XXXX
-   cd my-ge-demo-*/examples/launchmybakery/adk_agent
-   </walkthrough-test-code-block>
+---
 
-2. Start the server (ensure you use the local virtual environment):
-   <walkthrough-test-code-block>
-   ../.venv/bin/adk web
-   </walkthrough-test-code-block>
+## Step 3: Access the UI & Preview
 
-## Step 4: Access the UI
-
-Once the server is running (you'll see `Uvicorn running on http://127.0.0.1:8000`):
+Once you see `Uvicorn running on http://127.0.0.1:8000`:
 
 1. Click the **Web Preview** button at the top right of the Cloud Shell window.
 2. Select **Preview on port 8000**.
-3. In the ADK Web UI, select the **mcp_app** and start a new session.
+3. In the new tab, select the **mcp_app** and start a new session.
 
-## Step 5: Try the Scenarios
+---
 
-Now you can test the reasoning capabilities of the agent. Refer to the **Step 2: Recommended Demo Flow** section in your Web UI for tailored prompts.
+## Step 4: Try the Scenarios
 
-Example questions:
-- "Can you list the tables available in my dataset?"
-- "Analyze the impact of weather/traffic on my business operations using the integrated toolsets."
-- "Combine BigQuery insights with Maps data to solve the current problem."
+Use the **Step 2: Recommended Demo Flow** section in your Demo Generator for tailored prompts.
+
+**Example Prompts:**
+- "Analyze sales trends using the BigQuery tool."
+- "Correlate demographic data with real-world locations via Google Maps."
+- "Predict future demand based on historical data."
 
 ---
 
 ### Need Help?
-Contact the developer at [ryotat@google.com](mailto:ryotat@google.com) or refer to the [LaunchMyBakery](https://github.com/google/mcp/tree/main/examples/launchmybakery) official documentation.
+Contact [ryotat@google.com](mailto:ryotat@google.com) or refer to the [LaunchMyBakery](https://github.com/google/mcp/tree/main/examples/launchmybakery) documentation.

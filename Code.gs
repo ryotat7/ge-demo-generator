@@ -101,7 +101,14 @@ function generateDemo(userGoal, options = {}) {
       userGoal: userGoal,
       options: options,
       datasetId: datasetId,
-      publicDatasetId: planResult.publicDatasetId
+      publicDatasetId: planResult.publicDatasetId,
+      result: {
+        dataPreview: result.dataPreview,
+        systemInstruction: result.systemInstruction,
+        demoGuide: result.demoGuide,
+        setupScript: result.setupScript,
+        rawTables: result.rawTables
+      }
     });
     
   } catch (error) {
@@ -518,13 +525,129 @@ function executeWithRetry(fn) {
 
 function saveHistory(entry) {
   const props = PropertiesService.getUserProperties();
-  let history = JSON.parse(props.getProperty(CONFIG.HISTORY_KEY) || '[]');
-  history.unshift(entry);
-  props.setProperty(CONFIG.HISTORY_KEY, JSON.stringify(history.slice(0, CONFIG.MAX_HISTORY)));
+  const historyKey = CONFIG.HISTORY_KEY;
+  let history = JSON.parse(props.getProperty(historyKey) || '[]');
+  
+  // To keep history light, we store only metadata in the main list
+  // The heavy result data is stored in separate chunked keys
+  const storageId = `demo_data_${new Date(entry.timestamp).getTime()}`;
+  const dataToStore = JSON.stringify(entry.result);
+  
+  // Store the payload in chunks
+  saveLargeData(props, storageId, dataToStore);
+  
+  // Remove the large result from the index entry
+  const indexEntry = { ...entry };
+  delete indexEntry.result;
+  indexEntry.storageId = storageId;
+  
+  history.unshift(indexEntry);
+  
+  // Clean up old entries' extra data if exceeding limit
+  if (history.length > CONFIG.MAX_HISTORY) {
+    const expired = history.pop();
+    if (expired.storageId) {
+      deleteLargeData(props, expired.storageId);
+    }
+  }
+  
+  props.setProperty(historyKey, JSON.stringify(history));
 }
 
-function getHistory() { return JSON.parse(PropertiesService.getUserProperties().getProperty(CONFIG.HISTORY_KEY) || '[]'); }
-function clearHistory() { PropertiesService.getUserProperties().deleteProperty(CONFIG.HISTORY_KEY); return { success: true }; }
+function getHistory() { 
+  return JSON.parse(PropertiesService.getUserProperties().getProperty(CONFIG.HISTORY_KEY) || '[]'); 
+}
+
+/**
+ * Retrieves a full history item including its chunked result data
+ */
+function getHistoryItem(timestamp) {
+  const props = PropertiesService.getUserProperties();
+  const history = JSON.parse(props.getProperty(CONFIG.HISTORY_KEY) || '[]');
+  const entry = history.find(h => h.timestamp === timestamp);
+  
+  if (entry && entry.storageId) {
+    const dataStr = getLargeData(props, entry.storageId);
+    if (dataStr) {
+      entry.result = JSON.parse(dataStr);
+    }
+  }
+  return entry;
+}
+
+/**
+ * Deletes a specific history item and its chunked data
+ */
+function deleteHistoryItem(timestamp) {
+  const props = PropertiesService.getUserProperties();
+  let history = JSON.parse(props.getProperty(CONFIG.HISTORY_KEY) || '[]');
+  
+  const index = history.findIndex(h => h.timestamp === timestamp);
+  if (index !== -1) {
+    const entry = history[index];
+    if (entry.storageId) {
+      deleteLargeData(props, entry.storageId);
+    }
+    history.splice(index, 1);
+    props.setProperty(CONFIG.HISTORY_KEY, JSON.stringify(history));
+  }
+  return { success: true };
+}
+
+function clearHistory() { 
+  const props = PropertiesService.getUserProperties();
+  const history = JSON.parse(props.getProperty(CONFIG.HISTORY_KEY) || '[]');
+  
+  // Clear all chunked data associated with history items
+  history.forEach(entry => {
+    if (entry.storageId) {
+      deleteLargeData(props, entry.storageId);
+    }
+  });
+  
+  props.deleteProperty(CONFIG.HISTORY_KEY);
+  return { success: true }; 
+}
+
+// --- Large Data Chunking Helpers ---
+
+/**
+ * GAS PropertiesService has a 9KB limit per key.
+ * This helper splits data into multiple chunks.
+ */
+function saveLargeData(props, baseKey, data) {
+  const CHUNK_SIZE = 8000; // Safe margin below 9216 bytes
+  const totalChunks = Math.ceil(data.length / CHUNK_SIZE);
+  
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = data.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+    props.setProperty(`${baseKey}_chunk_${i}`, chunk);
+  }
+  props.setProperty(`${baseKey}_meta`, JSON.stringify({ totalChunks: totalChunks }));
+}
+
+function getLargeData(props, baseKey) {
+  const metaStr = props.getProperty(`${baseKey}_meta`);
+  if (!metaStr) return null;
+  
+  const meta = JSON.parse(metaStr);
+  let data = '';
+  for (let i = 0; i < meta.totalChunks; i++) {
+    data += props.getProperty(`${baseKey}_chunk_${i}`) || '';
+  }
+  return data;
+}
+
+function deleteLargeData(props, baseKey) {
+  const metaStr = props.getProperty(`${baseKey}_meta`);
+  if (!metaStr) return;
+  
+  const meta = JSON.parse(metaStr);
+  for (let i = 0; i < meta.totalChunks; i++) {
+    props.deleteProperty(`${baseKey}_chunk_${i}`);
+  }
+  props.deleteProperty(`${baseKey}_meta`);
+}
 
 function updateSystemInstruction(setupScript, newInstruction) {
   const escaped = newInstruction.replace(/\\/g, '\\\\').replace(/'/g, "'\\''").replace(/\n/g, '\\n');

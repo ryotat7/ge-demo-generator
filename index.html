@@ -117,6 +117,10 @@
       color: white;
       animation: none;
     }
+
+    #archChevron.rotated {
+      transform: rotate(180deg);
+    }
   </style>
 </head>
 
@@ -140,11 +144,11 @@
         <!-- Header -->
         <header class="mb-10 text-center lg:text-left relative">
           <div class="absolute -top-4 -right-4 hidden lg:block text-right">
-            <div class="text-[10px] font-mono text-gray-400 underline decoration-sky-500/50 mb-1">go/ge-demo-generator
+            <div
+              class="text-[11px] text-gray-400 font-medium tracking-tight bg-white/5 px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
+              Author: <a href="https://moma.corp.google.com/person/ryotat" target="_blank"
+                class="text-sky-400 hover:text-sky-300 transition-colors font-bold ml-1">ryotat@google.com</a>
             </div>
-            <div class="text-[9px] text-gray-500 font-medium tracking-tight">Author: <a
-                href="https://moma.corp.google.com/person/ryotat" target="_blank"
-                class="hover:text-sky-400 transition-colors border-b border-gray-700">ryotat@google.com</a></div>
           </div>
           <div
             class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-4">
@@ -152,11 +156,11 @@
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
             </span>
-            Gemini Enterprise Demo Generator (go/ge-demo-generator)
+            Gemini Enterprise Demo Generator
           </div>
           <h1
             class="text-4xl lg:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-            ADK Agent Demo Generator
+            Build and run your custom agent demo
           </h1>
           <p
             class="text-gray-400 text-lg max-w-2xl text-center lg:text-left mx-auto lg:mx-0 leading-relaxed font-light">
@@ -169,109 +173,120 @@
           </p>
         </header>
 
-        <!-- Demo Overview & Architecture -->
-        <section class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in border border-sky-500/20 shadow-2xl highlight-glow">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div>
-              <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
+        <!-- Demo Overview & Architecture (Collapsible) -->
+        <section class="glass rounded-3xl mb-10 overflow-hidden border border-white/5 shadow-xl">
+          <button onclick="toggleArchitecture()"
+            class="w-full flex items-center justify-between p-6 lg:p-8 hover:bg-white/5 transition-all text-left group">
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
                   </path>
                 </svg>
-                Dynamic Demo Synthesis
-              </h3>
-              <p class="text-[13px] text-gray-300 leading-relaxed mb-4">
-                Unlike static templates, this accelerator <b>auto-generates data</b> based on the customer problem you
-                input. It creates an orchestration between <b>BigQuery</b> macro-analytics and <b>Google Maps</b>
-                real-world grounding.
-              </p>
-              <p class="text-[12px] text-gray-400 leading-relaxed font-light">
-                The resulting environment features a Gemini 3 Pro agent equipped with custom-tailored synthetic
-                datasets:
-              </p>
-              <ul class="mt-4 space-y-3">
-                <li class="text-[11px] text-gray-300 flex items-start gap-2">
-                  <span class="text-sky-400 mt-0.5">•</span>
-                  <span><b>Contextual Data:</b> Dynamically generated demographics, sales history, and market
-                    trends.</span>
-                </li>
-                <li class="text-[11px] text-gray-300 flex items-start gap-2">
-                  <span class="text-sky-400 mt-0.5">•</span>
-                  <span><b>Tailored Reasoning:</b> A pre-configured agent with instructions specific to the business
-                    goal.</span>
-                </li>
-                <li class="text-[11px] text-gray-300 flex items-start gap-2">
-                  <span class="text-sky-400 mt-0.5">•</span>
-                  <span><b>LaunchMyBakery Pattern:</b> Uses official ADK patterns for BQ and Maps toolsets.</span>
-                </li>
-              </ul>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-gray-200">How it works: Dynamic Demo Synthesis</h3>
+                <p class="text-[11px] text-gray-500 mt-1">Architecture and data orchestration details</p>
+              </div>
             </div>
+            <svg id="archChevron" class="w-5 h-5 text-gray-600 transition-transform duration-300" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
 
-            <div class="relative">
-              <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agent Runtime Architecture</h3>
-              <div
-                class="relative flex items-center justify-center min-h-[160px] bg-sky-900/10 rounded-2xl border border-sky-500/10">
-                <svg class="w-full h-full" viewBox="0 0 400 180" fill="none">
-                  <!-- Connectors -->
-                  <path d="M120 90 L200 45 M120 90 L200 90 M120 90 L200 135" stroke="#334155" stroke-width="1.2"
-                    stroke-dasharray="3 3" />
-                  <path d="M300 90 L340 90 M300 135 L340 135" stroke="#334155" stroke-width="1.2" />
+          <div id="architectureContent" class="hidden border-t border-white/5 bg-black/20 p-6 lg:p-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div>
+                <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 10V3L4 14h7v7l9-11h-7z">
+                    </path>
+                  </svg>
+                  Dynamic Data Generation
+                </h3>
+                <p class="text-[13px] text-gray-300 leading-relaxed mb-4">
+                  Unlike static templates, this accelerator <b>auto-generates data</b> based on the customer problem you
+                  input. It creates an orchestration between <b>BigQuery</b> macro-analytics and <b>Google Maps</b>
+                  real-world grounding.
+                </p>
+                <ul class="space-y-3">
+                  <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                    <span class="text-sky-400 mt-0.5">•</span>
+                    <span><b>Contextual Data:</b> Dynamically generated demographics, sales history, and market
+                      trends.</span>
+                  </li>
+                  <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                    <span class="text-sky-400 mt-0.5">•</span>
+                    <span><b>Tailored Reasoning:</b> A pre-configured agent with instructions specific to the business
+                      goal.</span>
+                  </li>
+                </ul>
+              </div>
 
-                  <!-- Nodes (LaunchMyBakery Whitebox Style) -->
-                  <rect x="20" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
-                  <text x="70" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                    font-weight="600">ADK Agent</text>
-                  <text x="70" y="98" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Local
-                    Instance</text>
-
-                  <rect x="200" y="25" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
-                  <text x="250" y="43" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                    font-weight="600">Gemini 3 Pro</text>
-                  <text x="250" y="53" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Vertex
-                    AI</text>
-
-                  <rect x="200" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
-                  <text x="250" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                    font-weight="600">MCP BigQuery</text>
-                  <text x="250" y="98" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Data
-                    Access</text>
-
-                  <rect x="200" y="115" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
-                  <text x="250" y="133" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
-                    font-weight="600">MCP Maps</text>
-                  <text x="250" y="143" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="7">Geo
-                    Context</text>
-
-                  <rect x="340" y="70" width="50" height="40" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
-                  <text x="365" y="95" text-anchor="middle" fill="#64748B" font-family="Inter" font-size="7">BQ</text>
-
-                  <rect x="340" y="115" width="50" height="40" rx="6" fill="#F8FAFC" stroke="#E2E8F0"
-                    stroke-width="1" />
-                  <text x="365" y="140" text-anchor="middle" fill="#64748B" font-family="Inter"
-                    font-size="7">Maps</text>
-                </svg>
+              <div class="relative">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agent Runtime Architecture
+                </h3>
+                <div
+                  class="relative flex items-center justify-center min-h-[160px] bg-sky-900/10 rounded-2xl border border-sky-500/10">
+                  <svg class="w-full h-full" viewBox="0 0 400 180" fill="none">
+                    <path d="M120 90 L200 45 M120 90 L200 90 M120 90 L200 135" stroke="#334155" stroke-width="1.2"
+                      stroke-dasharray="3 3" />
+                    <path d="M300 90 L340 90 M300 135 L340 135" stroke="#334155" stroke-width="1.2" />
+                    <rect x="20" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1" />
+                    <text x="70" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                      font-weight="600">ADK Agent</text>
+                    <rect x="200" y="25" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
+                      stroke-width="1" />
+                    <text x="250" y="43" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                      font-weight="600">Gemini 3 Pro</text>
+                    <rect x="200" y="70" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
+                      stroke-width="1" />
+                    <text x="250" y="88" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                      font-weight="600">MCP BigQuery</text>
+                    <rect x="200" y="115" width="100" height="40" rx="6" fill="white" stroke="#E2E8F0"
+                      stroke-width="1" />
+                    <text x="250" y="133" text-anchor="middle" fill="#475569" font-family="Inter" font-size="8"
+                      font-weight="600">MCP Maps</text>
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Generation Form -->
-        <section class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl">
-          <div class="mb-6">
-            <label class="block text-sm font-bold text-gray-300 uppercase tracking-tight mb-3">1. Describe the
-              Customer's Business Challenge</label>
-            <textarea id="userGoal" rows="4"
-              class="w-full bg-gray-900/50 border border-gray-700 rounded-2xl p-4 text-gray-100 placeholder-gray-600 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-inner"
-              placeholder="Example: How to help a retail chain in London optimize seasonal stock based on demographic shifts and regional foot traffic trends?"></textarea>
+        <!-- Generation Form - Step 1 -->
+        <section class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-sky-500/20">
+          <div class="flex items-center gap-3 mb-8">
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500 text-white font-bold shadow-lg shadow-sky-500/40">1</span>
+            <div>
+              <h2 class="text-xl font-bold text-white uppercase tracking-tight">Step 1: Define Business Challenge</h2>
+              <p class="text-[11px] text-gray-500">Select a template or describe your customer's problem</p>
+            </div>
+          </div>
 
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <span class="text-[10px] text-gray-500 font-bold uppercase mr-1">Industry Examples:</span>
-              <div id="sampleChips" class="flex flex-wrap gap-2 text-[9px]">
-                <!-- Samples will be injected here -->
-              </div>
-              <div class="ml-auto">
+          <!-- Templates & Language -->
+          <div class="mb-8 p-6 bg-white/5 rounded-2xl border border-white/10 shadow-inner">
+            <div class="flex items-center justify-between mb-4">
+              <label class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Industry Templates
+              </label>
+              <div class="flex items-center gap-2 bg-black/20 rounded-lg p-1 border border-white/5 shadow-sm">
+                <svg class="w-3 h-3 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129">
+                  </path>
+                </svg>
                 <select id="langSelector" onchange="updateSamples()"
-                  class="bg-gray-800 text-[10px] border border-gray-700 rounded-full px-3 py-1 outline-none text-sky-400 font-bold hover:border-sky-500/50 transition-colors shadow-sm">
+                  class="bg-transparent text-[10px] outline-none text-sky-400 font-bold px-1 py-0.5 cursor-pointer hover:text-sky-300 transition-colors">
                   <option value="en">English</option>
                   <option value="ja">日本語</option>
                   <option value="zh">中文</option>
@@ -281,6 +296,18 @@
                 </select>
               </div>
             </div>
+
+            <div id="sampleChips" class="flex flex-wrap gap-2.5">
+              <!-- Samples will be injected here -->
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 ml-1">Detail the
+              Business Scenario</label>
+            <textarea id="userGoal" rows="4"
+              class="w-full bg-gray-900/50 border border-gray-700 rounded-2xl p-4 text-gray-100 placeholder-gray-600 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-inner leading-relaxed"
+              placeholder="Example: How to help a retail chain in London optimize seasonal stock based on demographic shifts and regional foot traffic trends?"></textarea>
           </div>
 
           <!-- Options -->
@@ -399,14 +426,16 @@
             </div>
           </div>
 
-          <!-- PHASE 2: Deployment & Execution -->
+          <!-- PHASE 2: Deployment & Execution - Step 2 -->
           <div
-            class="glass rounded-3xl p-10 border border-sky-500/40 shadow-2xl shadow-sky-900/20 bg-gradient-to-br from-sky-900/10 to-transparent">
-            <div class="flex items-center gap-3 mb-10">
-              <div
-                class="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-sky-500/20">
-                B</div>
-              <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Deployment & Live Demo</h2>
+            class="glass rounded-3xl p-10 border border-emerald-500/40 shadow-2xl shadow-emerald-900/20 bg-gradient-to-br from-emerald-900/10 to-transparent">
+            <div class="flex items-center gap-4 mb-10">
+              <span
+                class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold text-xl shadow-lg shadow-emerald-500/40">2</span>
+              <div>
+                <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Step 2: Deployment & Live Demo</h2>
+                <p class="text-[11px] text-gray-500">Run the synthesized environment in your own GCP project</p>
+              </div>
             </div>
 
             <!-- Step 1: Initialization -->
@@ -481,36 +510,55 @@
   <script>
     let currentData = null;
 
+    function toggleArchitecture() {
+      const content = document.getElementById('architectureContent');
+      const chevron = document.getElementById('archChevron');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotated');
+    }
+
     const SAMPLES = {
       en: [
         { label: "📉 SaaS Churn", text: "Global SaaS churn analysis and customer retention strategy using historical usage patterns." },
         { label: "🏙️ NY Retail", text: "Retail optimization for Manhattan stores by correlating foot traffic, sales, and local weather." },
-        { label: "📦 Supply Chain", text: "Factory downtime prediction and inventory optimization based on parts failure history." }
+        { label: "📦 Supply Chain", text: "Factory downtime prediction and inventory optimization based on parts failure history." },
+        { label: "🏥 Health Tech", text: "Predicting patient readmission rates and optimizing hospital staffing based on historical health data." },
+        { label: "⚡ Smart Grid", text: "Optimizing energy distribution and predicting peak load demands for a city-scale smart grid." }
       ],
       ja: [
         { label: "🏪 小売店売上", text: "東京都内の小売店売上分析と、気象データを組み合わせた在庫最適化および需要予測デモ。" },
         { label: "🏨 ホテル需要", text: "観光都市におけるホテルの稼働率予測と、周辺イベントデータを活用した価格動向分析。" },
-        { label: "🚚 物流効率化", text: "配送ルートの遅延予測と、トラフィックパターンに基づいた燃料効率の最適化デモ。" }
+        { label: "🚚 物流効率化", text: "配送ルートの遅延予測と、トラフィックパターンに基づいた燃料効率の最適化デモ。" },
+        { label: "🚜 農業DX", text: "収穫量の予測と、気候データおよび市場価格を組み合わせた営農計画の最適化デモ。" },
+        { label: "🏭 製造ライン", text: "製造工程のボトルネック検知と、センサーデータに基づいた保守タイミングの予測最適化。" }
       ],
       zh: [
         { label: "🛒 零售分析", text: "零售销售分析和结合天气数据的库存优化" },
-        { label: "📉 客户流失", text: "全球化产品的SaaS订阅流失分析和收入预测" },
-        { label: "🏗️ 供应链", text: "全球制造企业的供应链优化和库存管理" }
+        { label: "📉 客户流失", text: "全球化产品的SaaS订阅流失分析和收入予測" },
+        { label: "🏗️ 供应链", text: "全球制造企业的供应链优化和库存管理" },
+        { label: "🏦 金融风险", text: "基于交易历史和信用评分的金融欺诈检测和风险评估デモ。" },
+        { label: "🚗 智慧交通", text: "城市交通流量预测和基于实时数据的路网优化方案。" }
       ],
       fr: [
         { label: "📊 Ventes Détail", text: "Analyse des ventes au détail et optimisation des stocks combinée aux données météorologiques" },
         { label: "🚛 Chaîne Logistique", text: "Optimisation de la chaîne logistique et gestion des stocks pour un fabricant mondial" },
-        { label: "💎 Luxe & Trends", text: "Analyse des sentiments sur les réseaux sociaux et découverte de trends pour une marque de luxe" }
+        { label: "💎 Luxe & Trends", text: "Analyse des sentiments sur les réseaux sociaux et découverte de trends pour une marque de luxe" },
+        { label: "🏥 Santé Connectée", text: "Prédiction des taux de réadmission des patients et optimisation du personnel hospitalier." },
+        { label: "🔌 Énergie Verte", text: "Optimisation de la distribution d'énergie et prédiction de la demande pour un réseau intelligent." }
       ],
       de: [
         { label: "📈 Einzelhandel", text: "Einzelhandelsumsatzanalyse und Bestandsoptimierung kombiniert mit Wetterdaten" },
         { label: "🏭 Produktion", text: "Vorausschauende Wartung und Ausfallzeitprognose basierend auf Produktionsdaten" },
-        { label: "🏦 Fintech Risiko", text: "Finanzielle Risikobewertung und Optimierung von Anlageportfolios" }
+        { label: "🏦 Fintech Risiko", text: "Finanzielle Risikobewertung und Optimierung von Anlageportfolios" },
+        { label: "🏥 Medizintechnik", text: "Vorhersage von Patienten-Wiederaufnahmeraten und Optimierung der Personalbesetzung in Krankenhäusern." },
+        { label: "🌐 Smart City", text: "Optimierung des Verkehrsflusses und Vorhersage der Luftqualität basierend auf Sensordaten." }
       ],
       es: [
         { label: "🏪 Venta Minorista", text: "Análisis de ventas minoristas y optimización de inventario combinados con datos meteorológicos" },
         { label: "📦 Cadena de Suministro", text: "Optimización de la cadena de suministro y gestion de inventario para un fabricante global" },
-        { label: "🍷 Exportación", text: "Análisis de mercados internacionales y predicción de demanda para exportación agrícola" }
+        { label: "🍷 Exportación", text: "Análisis de mercados internacionales y predicción de demanda para exportación agrícola" },
+        { label: "🚜 AgroTech", text: "Predicción del rendimiento de cultivos y optimización de la planificación agrícola basada en el clima." },
+        { label: "🏥 Salud Digital", text: "Predicción de reingresos de pacientes y optimización del personal sanitario en hospitales." }
       ]
     };
 
@@ -523,7 +571,7 @@
         SAMPLES[lang].forEach((sample, i) => {
           const btn = document.createElement('button');
           btn.onclick = () => setIdea(sample.text);
-          btn.className = "idea-chip px-3 py-1.5 rounded-full glass border border-gray-700/50 text-gray-400 hover:text-white transition-all text-[10px] font-medium";
+          btn.className = "idea-chip px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-sky-500/20 hover:border-sky-500/50 transition-all text-[11px] font-medium shadow-sm hover:shadow-sky-500/20";
           btn.innerText = sample.label;
           container.appendChild(btn);
         });
@@ -679,14 +727,63 @@
         if (history && history.length) {
           history.forEach(item => {
             const div = document.createElement('div');
-            div.className = 'glass p-3 rounded-xl border border-white/5 hover:border-sky-500/50 cursor-pointer transition-all group shadow-sm bg-black/20';
-            div.innerHTML = `<div class="text-[9px] text-gray-600 mb-1 font-mono">${new Date(item.timestamp).toLocaleDateString()}</div><div class="text-[10px] text-gray-400 line-clamp-2 group-hover:text-white tracking-tight">${item.userGoal}</div>`;
+            div.dataset.timestamp = item.timestamp;
+            div.onclick = () => loadDemoFromHistory(item.timestamp);
+            div.className = 'glass p-3 rounded-xl border border-white/5 hover:border-sky-500/50 cursor-pointer transition-all group shadow-sm bg-black/20 flex items-start gap-2 relative';
+            div.innerHTML = `
+                <div class="flex-1 min-w-0">
+                  <div class="text-[9px] text-gray-600 mb-1 font-mono">${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  <div class="text-[10px] text-gray-400 line-clamp-2 group-hover:text-white tracking-tight leading-snug">${item.userGoal}</div>
+                </div>
+                <button onclick="deleteHistoryItemFromUI('${item.timestamp}', event)" class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-all">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+            `;
             list.appendChild(div);
           });
         }
       }).getHistory();
     }
-    function clearHistory() { if (confirm('Clear history?')) google.script.run.withSuccessHandler(loadHistory).clearHistory(); }
+
+    function loadDemoFromHistory(timestamp) {
+      if (document.getElementById('generateBtn').disabled) return;
+
+      const listItems = document.querySelectorAll('#historyList > div');
+      listItems.forEach(el => el.classList.remove('border-sky-500/80', 'bg-sky-500/5'));
+
+      google.script.run.withSuccessHandler(entry => {
+        if (!entry || !entry.result) return alert('Failed to load history data.');
+
+        // Populate form
+        document.getElementById('userGoal').value = entry.userGoal;
+        if (entry.options) {
+          if (entry.options.rowCount) document.getElementById('rowCount').value = entry.options.rowCount;
+          if (entry.options.tableCount) document.getElementById('tableCount').value = entry.options.tableCount;
+          if (entry.options.publicDatasetId) document.getElementById('publicDatasetId').value = entry.options.publicDatasetId;
+        }
+
+        // Populate results
+        currentData = entry.result;
+        showFinalResult(entry.result);
+
+        // Highlight selected
+        const target = document.querySelector(`#historyList > div[data-timestamp="${timestamp}"]`);
+        if (target) target.classList.add('border-sky-500/80', 'bg-sky-500/5');
+
+      }).getHistoryItem(timestamp);
+    }
+
+    function deleteHistoryItemFromUI(timestamp, event) {
+      event.stopPropagation();
+      if (!confirm('Remove this demo from history?')) return;
+
+      google.script.run.withSuccessHandler(() => {
+        loadHistory();
+        // If current data matches deleted item, clear UI? Optional.
+      }).deleteHistoryItem(timestamp);
+    }
+
+    function clearHistory() { if (confirm('Clear ALL history?')) google.script.run.withSuccessHandler(loadHistory).clearHistory(); }
 
     window.onload = () => {
       loadHistory();
