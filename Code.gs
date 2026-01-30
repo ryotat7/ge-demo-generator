@@ -323,6 +323,14 @@ if [ -z "$PROJECT_ID" ]; then
   exit 1
 fi
 
+echo "💾 Checking disk space..."
+FREE_SPACE=$(df -k . | awk 'NR==2 {print $4}')
+if [ "$FREE_SPACE" -lt 524288 ]; then
+  echo "⚠️  Warning: Low disk space detected in Cloud Shell ($((FREE_SPACE/1024)) MB left)."
+  echo "To clear space, you can run: rm -rf ~/my-ge-demo-*"
+  echo ""
+fi
+
 echo "========================================================="
 echo "🚀 Target Project: $PROJECT_ID"
 echo "📂 Target Dataset: ${datasetId}"
