@@ -694,8 +694,8 @@
       guideContainer.innerHTML = '';
       if (res.demoGuide && res.demoGuide.length) {
         res.demoGuide.forEach((step, i) => {
-          // Extract prompt between quotes or Japanese corner brackets
-          const match = step.match(/"([^"]+)"/) || step.match(/「([^」]+)」/);
+          // Extract prompt between quotes, single quotes, or Japanese corner brackets
+          const match = step.match(/"([^"]+)"/) || step.match(/'([^']+)'/) || step.match(/「([^」]+)」/);
           const prompt = match ? match[1] : step;
           const description = match ? step.replace(match[0], '').replace(/^[\d\s.]+|[:：]\s*/g, '').trim() : '';
 
