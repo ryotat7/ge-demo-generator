@@ -480,15 +480,15 @@ __AGENT_EOF__
 
 clear
 echo "========================================================="
-echo "🎉 Setup Complete (Portable & Secure)!"
+echo "🎉 Setup Complete!"
 echo "========================================================="
 echo ""
-echo "1. Launch the Agent:"
-echo "   cd ${dirName}/examples/launchmybakery/adk_agent"
-echo "   ../.venv/bin/adk web"
+echo "🚀 Launching the Agent UI..."
+echo "   (Pre-configured for project: $PROJECT_ID)"
 echo ""
-echo "💡 All data was provisioned directly in your project: $PROJECT_ID"
-echo "========================================================="
+
+cd ${dirName}/examples/launchmybakery/adk_agent
+../.venv/bin/adk web
 `;
 }
 
