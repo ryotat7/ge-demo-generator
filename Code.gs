@@ -127,7 +127,114 @@ function generateDemo(userGoal, options = {}) {
 // Step 1: Planning and Data Generation
 // ===========================================
 
+/**
+ * Discovers a real BigQuery public dataset ID using Google Search grounding,
+ * then verifies the table exists using the BigQuery API.
+ * @param {string} userGoal - The user's business problem description.
+ * @returns {string} A verified public dataset ID or a fallback.
+ */
+function discoverPublicDataset(userGoal) {
+  const discoveryPrompt = `Find a real BigQuery public dataset that would be relevant for the following business problem:
+
+"${userGoal}"
+
+Requirements:
+1. The dataset MUST exist under the project 'bigquery-public-data'.
+2. Search Google to find the exact dataset and table names.
+3. Return ONLY the fully qualified ID in the format: bigquery-public-data.dataset_name.table_name
+4. If multiple tables exist, choose the most commonly used or primary one.
+5. Do NOT invent or hallucinate dataset names.
+
+Examples of real datasets:
+- bigquery-public-data.new_york_taxi_trips.tlc_yellow_trips_2022
+- bigquery-public-data.thelook_ecommerce.orders
+- bigquery-public-data.austin_bikeshare.bikeshare_trips
+- bigquery-public-data.noaa_gsod.gsod2023
+
+Return ONLY the dataset ID, nothing else.`;
+
+  const FALLBACK = 'bigquery-public-data.thelook_ecommerce.orders';
+
+  try {
+    const result = callVertexAIWithSearch(discoveryPrompt);
+    const cleanId = result.trim().replace(/[`'"]/g, '').split('\n')[0];
+    
+    if (!cleanId.startsWith('bigquery-public-data.') || cleanId.split('.').length < 3) {
+      console.log('Invalid dataset format, using fallback. Raw:', result);
+      return FALLBACK;
+    }
+    
+    // Verify the table exists using BigQuery API
+    const verifiedId = verifyAndResolveTable(cleanId);
+    if (verifiedId) {
+      console.log('Verified public dataset:', verifiedId);
+      return verifiedId;
+    }
+    
+    console.log('Table verification failed, using fallback.');
+    return FALLBACK;
+  } catch (e) {
+    console.log('Dataset discovery failed:', e.message);
+    return FALLBACK;
+  }
+}
+
+/**
+ * Verifies a table exists in BigQuery. If the exact table doesn't exist,
+ * attempts to find a valid table in the same dataset.
+ * @param {string} candidateId - Fully qualified ID (project.dataset.table)
+ * @returns {string|null} Verified table ID or null if not found.
+ */
+function verifyAndResolveTable(candidateId) {
+  const parts = candidateId.split('.');
+  if (parts.length < 3) return null;
+  
+  const projectId = parts[0];
+  const datasetId = parts[1];
+  const tableId = parts.slice(2).join('.'); // Handle table names with dots
+  
+  // Try to get the exact table first
+  try {
+    BigQuery.Tables.get(projectId, datasetId, tableId);
+    return candidateId; // Table exists!
+  } catch (e) {
+    console.log(`Table ${tableId} not found in ${datasetId}. Searching for alternatives...`);
+  }
+  
+  // Table doesn't exist. List tables in the dataset and pick a suitable one.
+  try {
+    const tables = BigQuery.Tables.list(projectId, datasetId, { maxResults: 20 });
+    if (tables.tables && tables.tables.length > 0) {
+      // Prefer tables with common data-related names
+      const preferredPatterns = ['trips', 'orders', 'events', 'data', 'stats', 'records'];
+      for (const pattern of preferredPatterns) {
+        const match = tables.tables.find(t => t.tableReference.tableId.toLowerCase().includes(pattern));
+        if (match) {
+          const resolvedId = `${projectId}.${datasetId}.${match.tableReference.tableId}`;
+          console.log('Resolved to alternative table:', resolvedId);
+          return resolvedId;
+        }
+      }
+      // Fallback to the first table
+      const firstTable = tables.tables[0].tableReference.tableId;
+      const resolvedId = `${projectId}.${datasetId}.${firstTable}`;
+      console.log('Resolved to first available table:', resolvedId);
+      return resolvedId;
+    }
+  } catch (listError) {
+    console.log('Failed to list tables in dataset:', listError.message);
+  }
+  
+  return null;
+}
+
+
 function planAndGenerateData(userGoal, options) {
+  // Step 0: If no public dataset specified, discover one using search grounding
+  if (!options.publicDatasetId) {
+    options.publicDatasetId = discoverPublicDataset(userGoal);
+  }
+  
   const prompt = buildPlanningPrompt(userGoal, options);
   const response = callVertexAIWithRetry(prompt);
   
@@ -157,7 +264,8 @@ function planAndGenerateData(userGoal, options) {
         dataPreview.push({
           tableName: table.tableName,
           headers: headers.map(h => h.trim()),
-          rows: previewRows
+          rows: previewRows,
+          totalRows: lines.length - 1
         });
       }
     }
@@ -173,7 +281,7 @@ function planAndGenerateData(userGoal, options) {
 }
 
 function buildPlanningPrompt(userGoal, options) {
-  const maxRows = Math.min(options.rowCount, 100);
+  const maxRows = Math.min(options.rowCount, 50); // Cap at 50 for stability
   
   return `You are a data analyst and BigQuery expert.
 Design and generate a demo dataset based on the following business problem.
@@ -183,8 +291,8 @@ ${userGoal}
 
 ## Requirements
 - Number of tables: ${options.tableCount}
-- Rows per table: **Maximum ${maxRows} rows** (due to token limits)
-${options.publicDatasetId ? `- Related Public Dataset: ${options.publicDatasetId}` : '- Suggest one relevant BigQuery Public Dataset related to this problem'}
+- Rows per table: **Target exactly ${maxRows} diverse rows** per table.
+- Related Public Dataset for JOINs: ${options.publicDatasetId}
 
 ## Output Format (JSON)
 Output in the following JSON format. Output **pure JSON only without code blocks**.
@@ -200,18 +308,22 @@ Output in the following JSON format. Output **pure JSON only without code blocks
       "csvData": "column1,column2,...\\nvalue1,value2,...\\n..."
     }
   ],
-  "systemInstruction": "Specific instruction for the agent (3-5 sentences). It MUST instruct the agent to introduce itself (e.g., 'I am an AI analyst for [Problem Name]') and explicitly list the specific demo datasets/tables and public datasets it can access whenever it is greeted (e.g., 'Hello', 'Hi', 'こんにちは').",
+  "systemInstruction": "Specific instruction for the agent (3-5 sentences). It MUST:
+    1. Instruct the agent to introduce itself (e.g., 'I am an AI analyst for [Problem Name]').
+    2. Explicitly list the specific demo datasets/tables and public datasets it can access when greeted.
+    3. GUIDANCE: Always look for opportunities to JOIN multiple tables (including the public dataset) to provide deeper contextual insights.",
   "publicDatasetId": "bigquery-public-data.dataset_name.table_name",
   "demoGuide": [
     "1. Greeting & Intro: [Example prompt]",
-    "2. Data Discovery: [Example prompt]",
-    "3. Analytical Deep Dive: [Example prompt]",
+    "2. Data Discovery: [Show schema and basic queries]",
+    "3. Multi-table Insight (JOIN): [Prompt requiring a JOIN between local tables or with public data]",
     "4. Geospatial Context (Maps): [Example prompt]",
     "5. Strategy & Recommendation: [Example prompt]"
   ]
 }
 
 ## Critical Notes
+- **RELATIONAL INTEGRITY**: Tables MUST be designed for joining. Ensure consistent Primary/Foreign keys (e.g., customer_id, product_id) with NO dangling references.
 - **CSV data MUST NOT exceed ${maxRows} rows**.
 - Use double quotes for CSV fields containing commas.
 - **LANGUAGE PARITY**: Generate all qualitative content (table/field descriptions, synthetic data values like names/locations/categories, and system instructions) in the **SAME LANGUAGE** as the user's input business problem. Use English only for technical identifiers like table/column names.
@@ -567,6 +679,29 @@ function callVertexAI(prompt) {
   if (response.getResponseCode() !== 200) throw new Error(`AI Error: ${response.getContentText()}`);
   return JSON.parse(response.getContentText()).candidates[0].content.parts[0].text;
 }
+
+/**
+ * Calls Vertex AI with Google Search grounding enabled.
+ * Used for discovering real BigQuery public dataset IDs.
+ */
+function callVertexAIWithSearch(prompt) {
+  const url = `https://aiplatform.googleapis.com/v1/projects/${CONFIG.PROJECT_ID}/locations/${CONFIG.LOCATION}/publishers/google/models/${CONFIG.MODEL}:generateContent`;
+  const payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    tools: [{ googleSearch: {} }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+  };
+  const response = UrlFetchApp.fetch(url, {
+    method: 'POST',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error(`AI Search Error: ${response.getContentText()}`);
+  return JSON.parse(response.getContentText()).candidates[0].content.parts[0].text;
+}
+
 
 function executeWithRetry(fn) {
   let lastError;
