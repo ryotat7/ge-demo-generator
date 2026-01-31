@@ -732,7 +732,7 @@
                 <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">2. Run in Your Cloud Shell
                 </h4>
                 <p class="text-xs text-gray-400">Copy the setup script in <b>Step 3</b> and paste it into YOUR Google
-                  Cloud Shell. This app does not provision resources directly in your environment.</p>
+                  Cloud Shell. The setup script will provision resources in your environment.</p>
               </div>
               <div class="roadmap-step">
                 <div class="roadmap-dot"></div>
@@ -886,6 +886,69 @@
           </div>
 
           <div class="space-y-6">
+            <!-- Video Deep Dive & Link (Collapsible) -->
+            <section class="glass rounded-2xl overflow-hidden border border-white/5 shadow-lg bg-black/20 mb-6">
+              <button onclick="toggleStep5Resources()"
+                class="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-all text-left group">
+                <div class="flex items-center gap-3">
+                  <!-- Icon -->
+                  <div
+                    class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
+                      </path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold text-gray-200">Watch Tutorial</h3>
+                    <p class="text-[10px] text-gray-500 mt-0.5">Learn how to register to Gemini Enterprise</p>
+                  </div>
+                </div>
+                <svg id="step5Chevron" class="w-4 h-4 text-gray-600 transition-transform duration-300" fill="none"
+                  stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+
+              <div id="step5ResourcesContent" class="hidden border-t border-white/5 p-6 bg-black/20">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                  <!-- Video -->
+                  <div class="aspect-video w-full rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                    <iframe class="w-full h-full" src="https://www.youtube.com/embed/dhT2dAbRwVk"
+                      title="Advent of Agents: Register to Gemini Enterprise" frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowfullscreen></iframe>
+                  </div>
+                  <!-- Text & Link -->
+                  <div>
+                    <h3
+                      class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      Deep Dive Resources
+                    </h3>
+                    <p class="text-[12px] text-gray-300 leading-relaxed mb-4">
+                      For a step-by-step guide on how to register your agent to Gemini Enterprise and enable it for your
+                      organization, check out Day 19 of Advent of Agents.
+                    </p>
+                    <a href="https://adventofagents.com/day/19" target="_blank"
+                      class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-[11px] font-bold text-emerald-400 transition-all">
+                      <span>Open Guide: Gemini Enterprise Registration</span>
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
               <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -959,6 +1022,8 @@
                 can then toggle it on to make it available to all users in your organization.
               </p>
             </div>
+
+
           </div>
         </section>
       </div>
@@ -985,6 +1050,13 @@
     function toggleArchitecture() {
       const content = document.getElementById('architectureContent');
       const chevron = document.getElementById('archChevron');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotated');
+    }
+
+    function toggleStep5Resources() {
+      const content = document.getElementById('step5ResourcesContent');
+      const chevron = document.getElementById('step5Chevron');
       content.classList.toggle('hidden');
       chevron.classList.toggle('rotated');
     }
