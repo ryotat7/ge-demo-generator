@@ -18,13 +18,16 @@ gcloud config set project {{project-id}}
 
 ---
 
-## Step 1: Provision Demo Environment
+## Step 1: Provision Demo Environment in Your Project
 
-First, we need to provision the BigQuery dataset and set up the agent code. 
+The Demo Generator has synthesized a custom setup script for you. This script is responsible for provisioning the BigQuery dataset and setting up the agent code within YOUR GCP environment.
 
 1. Go back to the **ADK Agent Demo Generator** Web UI.
-2. Under **Step 2: Deployment & Live Demo**, click the **Copy** button next to the **Setup Script**.
+2. Under **Step 3: Deploy**, click the **Copy** button next to the **Setup Script**.
 3. **Paste the command** into the Cloud Shell terminal window (at the bottom of your screen) and press **Enter**.
+
+> [!IMPORTANT]
+> This app does not provision resources directly. Running this script is the required step to create the demo environment in your own project.
 
 > **Note:** This script will create a directory named `my-ge-demo-[TIMESTAMP]`.
 

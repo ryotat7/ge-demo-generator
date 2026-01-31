@@ -253,6 +253,53 @@
       color: #38bdf8;
       border-color: rgba(56, 189, 248, 0.4);
     }
+
+    /* Onboarding Modal */
+    #onboardingModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+    }
+
+    #onboardingModal.show {
+      display: flex;
+    }
+
+    .roadmap-step {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .roadmap-step::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.5rem;
+      bottom: -1.5rem;
+      width: 2px;
+      background: rgba(14, 165, 233, 0.2);
+    }
+
+    .roadmap-step:last-child::before {
+      display: none;
+    }
+
+    .roadmap-dot {
+      position: absolute;
+      left: -4px;
+      top: 0.5rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0ea5e9;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+    }
   </style>
 </head>
 
@@ -284,6 +331,13 @@
           <div class="nav-dot"></div>
           Step 5: Go Production
         </a>
+        <div class="px-3 mt-8 mb-4">
+          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Support</h3>
+        </div>
+        <button onclick="openOnboarding()" class="nav-item w-full text-left">
+          <div class="nav-dot"></div>
+          About this toolkit
+        </button>
       </div>
     </aside>
 
@@ -336,7 +390,7 @@
                 </svg>
               </div>
               <div>
-                <h3 class="text-sm font-bold text-gray-200">How it works: Dynamic Demo Synthesis</h3>
+                <h3 class="text-sm font-bold text-gray-200">How it works</h3>
                 <p class="text-[11px] text-gray-500 mt-1">Architecture and data orchestration details</p>
               </div>
             </div>
@@ -605,7 +659,11 @@
           <!-- Generate Button -->
           <button id="generateBtn" onclick="generateDemo()"
             class="mt-10 w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-sky-500/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-3 group">
-            <span id="btnText" class="text-lg uppercase tracking-widest">Synthesize Custom Demo Assets</span>
+            <div class="flex flex-col items-center">
+              <span id="btnText" class="text-lg uppercase tracking-widest">Generate Setup Script & Assets</span>
+              <span class="text-[10px] opacity-70 font-normal tracking-tight mt-1">This generates a .sh script to be
+                executed in Cloud Shell</span>
+            </div>
             <svg id="btnSpinner" class="hidden w-6 h-6 spinner" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor"
@@ -651,6 +709,39 @@
 
         <!-- Result Section -->
         <section id="resultSection" class="hidden space-y-10 fade-in pb-24">
+
+          <!-- Post-Synthesis Roadmap -->
+          <div id="postSynthesisRoadmap" class="glass rounded-3xl p-8 border border-sky-500/30 bg-sky-500/5 mb-10">
+            <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+              <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                </path>
+              </svg>
+              Script Generated! What happens next?
+            </h3>
+            <div class="space-y-8 ml-2">
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-sky-400 uppercase tracking-tight mb-1">1. Review Generated Assets</h4>
+                <p class="text-xs text-gray-400">Audit the synthesized data and agent instructions below. You can refine
+                  them before deployment.</p>
+              </div>
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">2. Run in Your Cloud Shell
+                </h4>
+                <p class="text-xs text-gray-400">Copy the setup script in <b>Step 3</b> and paste it into YOUR Google
+                  Cloud Shell. This app does not provision resources directly in your environment.</p>
+              </div>
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">3. Launch Live Demo</h4>
+                <p class="text-xs text-gray-400">Once the script completes, launch the agent UI from Cloud Shell and use
+                  the prompts in <b>Step 4</b>.</p>
+              </div>
+            </div>
+          </div>
 
           <!-- Step 2: Review & Customize Assets -->
           <div id="section-step2" class="glass rounded-3xl p-8 border border-white/5 scroll-mt-8">
@@ -784,7 +875,7 @@
 
         <!-- Step 5: Production Deployment (Optional) -->
         <section id="section-step5"
-          class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-emerald-500/10">
+          class="hidden glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-emerald-500/10">
           <div class="flex items-center gap-3 mb-8">
             <span
               class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/40 text-sm">5</span>
@@ -1001,7 +1092,7 @@
         .withSuccessHandler(res => {
           document.getElementById('generateBtn').disabled = false;
           document.getElementById('btnSpinner').classList.add('hidden');
-          document.getElementById('btnText').innerText = 'Synthesize Custom Demo Assets';
+          document.getElementById('btnText').innerText = 'Generate Setup Script & Assets';
 
           if (!res.success) return onFailure(res.error);
 
@@ -1025,11 +1116,13 @@
       document.getElementById('btnSpinner').classList.add('hidden');
       document.getElementById('stepsSection').classList.add('hidden');
       document.getElementById('errorSection').classList.remove('hidden');
+      document.getElementById('btnText').innerText = 'Generate Setup Script & Assets';
       document.getElementById('errorMessage').innerText = err;
     }
 
     function showFinalResult(res) {
       document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('section-step5').classList.remove('hidden');
       document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > setup.sh\n${res.setupScript}\n__SETUP_SH__\nbash setup.sh`;
       document.getElementById('systemInstruction').value = res.systemInstruction;
 
@@ -1287,6 +1380,86 @@
       const content = document.getElementById('archZoomContent');
       content.style.transform = `translate(${zoomPos.x}px, ${zoomPos.y}px) scale(${zoomScale})`;
     }
+  </script>
+
+  <div id="onboardingModal">
+    <div class="glass max-w-lg w-full rounded-3xl p-8 border border-white/10 shadow-2xl">
+      <div class="text-center mb-8">
+        <div
+          class="w-16 h-16 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-sky-500/20">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-2">Welcome! Let's build your AI Demo.</h2>
+        <p class="text-gray-400 text-sm">Create hyper-personalized agent demos in minutes.</p>
+      </div>
+
+      <div class="space-y-6 mb-10">
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-sky-500/10 flex items-center justify-center text-xs font-bold text-sky-400 border border-sky-500/20">
+            🚀</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">What is this?</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">A toolkit to <b>synthesize realistic business datasets</b>
+              and <b>agent instructions</b>, offering customization of sample data on top of the <a
+                href="https://github.com/google/mcp/tree/main/examples/launchmybakery" target="_blank"
+                class="text-sky-400 hover:underline font-bold">LaunchMyBakery</a> demo application. The demo agent
+              generates
+              <b>dynamic responses</b> using <b>BigQuery</b> and <b>Google Maps</b> via Google-hosted <b>MCP
+                servers</b>.
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-xs font-bold text-emerald-400 border border-emerald-500/20">
+            ⚡</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">The Benefit</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">Skip the data prep. Generate a complete, grounded demo
+              environment tailored to any industry challenge or customer pitch instantly.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400 border border-amber-500/20">
+            🛡️</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">How it works</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">This app <b>only generates a script</b>. To deploy, you'll
+              copy the script and run it in <b>your own Google Cloud Shell</b>. Your data stay in your project.</p>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeOnboarding()"
+        class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-sky-500/20 active:scale-[0.98]">
+        START BUILDING
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function openOnboarding() {
+      document.getElementById('onboardingModal').classList.add('show');
+    }
+
+    function closeOnboarding() {
+      document.getElementById('onboardingModal').classList.remove('show');
+      localStorage.setItem('onboarding_seen', 'true');
+    }
+
+    // Wrap the existing window.onload to add onboarding logic
+    const originalOnload = window.onload;
+    window.onload = () => {
+      if (typeof originalOnload === 'function') originalOnload();
+
+      if (!localStorage.getItem('onboarding_seen')) {
+        document.getElementById('onboardingModal').classList.add('show');
+      }
+    };
   </script>
 </body>
 
