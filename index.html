@@ -1,0 +1,3370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADK Agent Demo Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CDN used for portability in GAS environment -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .gradient-bg {
+      background: radial-gradient(circle at top right, #0c4a6e, #0f172a);
+    }
+
+    .spinner {
+      animation: rotate 2s linear infinite;
+    }
+
+    @keyframes rotate {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .idea-chip {
+      transition: all 0.2s;
+    }
+
+    .idea-chip:hover {
+      background: rgba(14, 165, 233, 0.2);
+      border-color: #0ea5e9;
+      color: white;
+    }
+
+    ::-webkit-scrollbar {
+      width: 0;
+      display: none;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .glass {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    /* Sidebar Transitions */
+    .sidebar-transition {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar-collapsed-left {
+      transform: translateX(-100%);
+      margin-left: -16rem !important;
+      /* width + margin */
+      opacity: 0;
+    }
+
+    .sidebar-collapsed-right {
+      transform: translateX(100%);
+      margin-right: -20rem !important;
+      /* width + margin */
+      opacity: 0;
+    }
+
+    .highlight-glow {
+      box-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+    }
+
+    .step-completed {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .step-completed .step-icon {
+      background: #10b981;
+      color: white;
+      animation: none;
+    }
+
+    #archChevron.rotated {
+      transform: rotate(180deg);
+    }
+
+    #toast {
+      visibility: hidden;
+      min-width: 250px;
+      margin-left: -125px;
+      background-color: #0ea5e9;
+      color: #fff;
+      text-align: center;
+      border-radius: 12px;
+      padding: 16px;
+      position: fixed;
+      z-index: 100;
+      left: 50%;
+      bottom: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.3s, bottom 0.3s, visibility 0.3s;
+    }
+
+    #toast.show {
+      visibility: visible;
+      opacity: 1;
+      bottom: 50px;
+    }
+
+    /* Navigation Sidebar */
+    .nav-container {
+      position: sticky;
+      top: 2rem;
+      height: fit-content;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #f1f5f9;
+    }
+
+    .nav-item.active {
+      background: rgba(14, 165, 233, 0.1);
+      border-color: rgba(14, 165, 233, 0.3);
+      color: #38bdf8;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+    }
+
+    .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 8px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10px;
+      line-height: 1.4;
+      color: #94a3b8;
+      margin-bottom: 2px;
+      animation: logSlideIn 0.3s ease-out forwards;
+    }
+
+    @keyframes logSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .log-ts {
+      color: #64748b;
+      min-width: 50px;
+    }
+
+    .log-msg {
+      flex: 1;
+    }
+
+    .log-tag {
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 8px;
+      border-radius: 3px;
+      padding: 1px 4px;
+    }
+
+    .log-tag-info {
+      background: rgba(56, 189, 248, 0.1);
+      color: #38bdf8;
+    }
+
+    .log-tag-ai {
+      background: rgba(139, 92, 246, 0.1);
+      color: #a78bfa;
+    }
+
+    /* Tooltip Styles */
+    .tooltip-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: help;
+    }
+
+    .tooltip-content {
+      visibility: hidden;
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #f1f5f9;
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 10px;
+      line-height: 1.4;
+      width: 200px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.2s, visibility 0.2s;
+      pointer-events: none;
+    }
+
+    .tooltip-container:hover .tooltip-content {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .tooltip-content::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #1e293b transparent transparent transparent;
+    }
+
+    .log-tag-ai {
+      background: rgba(139, 92, 246, 0.1);
+      color: #a78bfa;
+    }
+
+    html,
+    main {
+      scroll-behavior: smooth;
+    }
+
+    section {
+      scroll-margin-top: 2rem;
+    }
+
+    /* Zoomably Styles */
+    .zoom-container {
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .zoom-container:active {
+      cursor: grabbing;
+    }
+
+    .zoom-content {
+      transition: transform 0.1s ease-out;
+      transform-origin: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 320px;
+    }
+
+    .zoom-controls {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+
+    .log-tag-ai {
+      background: rgba(139, 92, 246, 0.1);
+      color: #a78bfa;
+    }
+
+
+    .zoom-btn:hover {
+      background: #1e293b;
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    /* Onboarding Modal */
+    #onboardingModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+    }
+
+    #onboardingModal.show {
+      display: flex;
+    }
+
+    .roadmap-step {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .roadmap-step::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.5rem;
+      bottom: -1.5rem;
+      width: 2px;
+      background: rgba(14, 165, 233, 0.2);
+    }
+
+    .roadmap-step:last-child::before {
+      display: none;
+    }
+
+    .roadmap-dot {
+      position: absolute;
+      left: -4px;
+      top: 0.5rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0ea5e9;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+    }
+
+
+
+    /* ER Diagram Styles */
+    #erDiagramContainer {
+      width: 100%;
+      height: 400px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 1rem;
+      position: relative;
+    }
+
+    .vis-network {
+      outline: none;
+    }
+
+    .diagram-tooltip {
+      position: absolute;
+      padding: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(14, 165, 233, 0.3);
+      border-radius: 8px;
+      color: white;
+      font-size: 10px;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .demo-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .demo-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(56, 189, 248, 0.3);
+      transform: translateY(-1px);
+    }
+
+    /* History Tabs */
+    .tab-btn {
+      position: relative;
+      padding: 0.75rem 0;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: #38bdf8;
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+    }
+
+    /* Loading Spinner for Tabs */
+    .tab-loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem 0;
+    }
+
+    .spinner-small {
+      width: 1.5rem;
+      height: 1.5rem;
+      border: 2px solid rgba(56, 189, 248, 0.1);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Heart Icon */
+    .heart-btn {
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .heart-btn:active {
+      transform: scale(1.4);
+    }
+
+    .heart-btn.is-favorite {
+      color: #ef4444;
+      fill: #ef4444;
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen text-gray-100 font-inter">
+  <div class="max-w-[1780px] mx-auto flex justify-center gap-x-6 h-screen overflow-hidden relative">
+    <!-- Floating Sidebar Toggles (Visible when sidebars are closed) -->
+    <button id="leftToggle" onclick="toggleLeftSidebar()"
+      class="absolute left-6 top-8 z-50 p-3 rounded-2xl glass text-sky-400 opacity-0 pointer-events-none transition-all hover:scale-110 shadow-2xl border border-sky-500/30">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+      </svg>
+    </button>
+
+    <!-- Interactive Navigation Sidebar -->
+    <aside id="leftSidebar"
+      class="w-64 my-6 hidden lg:flex flex-col glass rounded-3xl overflow-hidden shadow-2xl sidebar-transition z-20">
+      <div class="p-6 h-full flex flex-col overflow-y-auto no-scrollbar">
+        <div class="flex items-center justify-between mb-6 px-3">
+          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Navigation</h3>
+          <button onclick="toggleLeftSidebar()" class="text-gray-500 hover:text-white transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7">
+              </path>
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-4 flex-grow">
+          <a href="#section-step1" class="nav-item active" data-section="section-step1">
+            <div class="nav-dot"></div>
+            Step 1: Define Goal
+          </a>
+          <a href="#section-step2" class="nav-item" data-section="section-step2">
+            <div class="nav-dot"></div>
+            Step 2: Customize
+          </a>
+          <a href="#section-step3" class="nav-item" data-section="section-step3">
+            <div class="nav-dot"></div>
+            Step 3: Deploy
+          </a>
+          <a href="#section-step4" class="nav-item" data-section="section-step4">
+            <div class="nav-dot"></div>
+            Step 4: Run Demo
+          </a>
+          <a href="#section-step5" class="nav-item" data-section="section-step5">
+            <div class="nav-dot"></div>
+            Step 5: Deploy to Gemini Enterprise
+          </a>
+          <div class="px-3 mt-8 mb-4">
+            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Support</h3>
+          </div>
+          <button onclick="openOnboarding()" class="nav-item w-full text-left">
+            <div class="nav-dot"></div>
+            About this toolkit
+          </button>
+          <a href="https://github.com/ryotat7/ge-demo-generator" target="_blank"
+            class="nav-item w-full text-left flex items-center">
+            <div class="nav-dot"></div>
+            <svg class="w-3.5 h-3.5 mr-1.5 inline-block" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            GitHub
+          </a>
+          <a href="https://github.com/ryotat7/ge-demo-generator/blob/main/README.md" target="_blank"
+            class="nav-item w-full text-left flex items-center">
+            <div class="nav-dot"></div>
+            <svg class="w-3.5 h-3.5 mr-1.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+              </path>
+            </svg>
+            Documentation
+          </a>
+
+        </div>
+
+        <!-- Sidebar Footer: Author, Version & Update -->
+        <div class="pt-6 mt-auto border-t border-white/5 space-y-4">
+          <div class="px-3">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Developed by</p>
+            <a href="https://github.com/ryotat7" target="_blank" class="flex items-center gap-2 group/author">
+              <div
+                class="w-7 h-7 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-400 border border-sky-500/20 group-hover/author:border-sky-400 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+              </div>
+              <div class="flex flex-col">
+                <span
+                  class="text-[11px] font-bold text-gray-300 group-hover/author:text-sky-400 transition-colors">Ryota
+                  Tokodai</span>
+                <span class="text-[9px] text-gray-500">Public Version</span>
+              </div>
+            </a>
+          </div>
+
+          <div class="px-3 py-3 bg-white/5 rounded-2xl border border-white/5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-medium text-gray-500 font-mono italic">
+                <?= appVersion ?>
+              </span>
+              <button onclick="openUpdateLog()"
+                class="group flex items-center gap-1.5 text-[9px] font-bold text-gray-400 hover:text-sky-400 transition-colors uppercase tracking-widest">
+                <span>What's New</span>
+                <span class="relative flex h-1.5 w-1.5">
+                  <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                  <span
+                    class="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.8)]"></span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+
+
+    <!-- Main Content -->
+    <main class="w-full max-w-5xl overflow-y-auto p-6 lg:p-10 min-w-0 no-scrollbar relative">
+
+      <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center lg:text-left relative">
+
+          <div
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-4">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+            </span>
+            Gemini Enterprise Demo Generator
+          </div>
+          <h1
+            class="text-4xl lg:text-5xl font-bold tracking-tight mb-4 py-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            Build and Run Your Custom Agent
+          </h1>
+          <p class="text-gray-400 text-lg text-center lg:text-left mx-auto lg:mx-0 leading-relaxed font-light">
+            Instantly generate <b>custom demo environments</b> for any business domain. This tool <b>dynamically
+              synthesizes datasets</b> and configures agents tailored to your client's unique challenges.
+            <button onclick="toggleArchitecture()"
+              class="inline-flex items-center gap-1 text-sky-400/70 hover:text-sky-400 transition-colors ml-1 font-medium group">
+              <span class="border-b border-sky-400/30 group-hover:border-sky-400 leading-none pb-0.5">How it
+                works</span>
+              <svg class="w-3 h-3 transition-transform duration-300 group-data-[open=true]:rotate-180" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </p>
+
+          <div id="architectureContent"
+            class="hidden mt-8 text-left bg-black/40 rounded-3xl border border-white/5 overflow-hidden animate-slide-down">
+            <div class="p-6 lg:p-8">
+              <div class="flex flex-col gap-8">
+                <div>
+                  <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z">
+                      </path>
+                    </svg>
+                    Dynamic Data Generation & Analysis
+                  </h3>
+                  <p class="text-[13px] text-gray-300 leading-relaxed mb-4">
+                    Unlike static templates, this accelerator <b>auto-generates data</b> based on the customer problem
+                    you
+                    input. It creates an orchestration between <b>BigQuery</b> macro-analytics and <b>Google Maps</b>
+                    real-world grounding.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                      <span class="text-sky-400 mt-0.5">•</span>
+                      <span><b>Contextual Data:</b> Dynamically generated demographics, sales history, and market
+                        trends.</span>
+                    </li>
+                    <li class="text-[11px] text-gray-300 flex items-start gap-2">
+                      <span class="text-sky-400 mt-0.5">•</span>
+                      <span><b>Tailored Reasoning:</b> A pre-configured agent with instructions specific to the business
+                        goal.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Section 2: Agent Runtime Architecture -->
+                <div class="pt-6">
+                  <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agent Runtime Architecture
+                  </h3>
+
+                  <div
+                    class="min-h-[350px] rounded-2xl bg-black/40 border border-white/5 overflow-hidden shadow-inner flex flex-col">
+                    <div class="p-6 flex-1 flex items-center justify-center">
+                      <svg id="archSvg" class="w-full h-auto max-w-[800px] select-none" viewBox="0 0 650 320"
+                        fill="none">
+                        <!-- Google Cloud Boundary -->
+                        <rect x="230" y="40" width="400" height="260" rx="20" fill="white" fill-opacity="0.03"
+                          stroke="white" stroke-opacity="0.1" stroke-width="1" stroke-dasharray="8 4" />
+                        <text x="245" y="65" fill="#f1f5f9" fill-opacity="0.5" font-family="Inter" font-size="12"
+                          font-weight="700">Google Cloud</text>
+
+                        <!-- Node: Agent Development Kit -->
+                        <rect x="20" y="130" width="200" height="60" rx="12" fill="#0ea5e9" fill-opacity="0.1"
+                          stroke="#0ea5e9" stroke-width="1" />
+                        <text x="85" y="158" fill="#f1f5f9" font-family="Inter" font-size="11" font-weight="700">Agent
+                          Development Kit</text>
+                        <text x="85" y="172" fill="#94a3b8" font-family="Inter" font-size="9">Local Agent</text>
+                        <circle cx="50" cy="160" r="15" fill="white" fill-opacity="0.1" />
+                        <path d="M45 155 Q50 150 55 155 M45 165 Q50 170 55 165" stroke="#f1f5f9" stroke-width="1" />
+
+                        <!-- Connections from ADK -->
+                        <g stroke="#334155" stroke-width="1.5">
+                          <path d="M220 160 L260 160" /> <!-- Main stem -->
+                          <path d="M260 160 L260 100 L290 100" /> <!-- To Gemini -->
+                          <path d="M260 160 L290 160" /> <!-- To BQ MCP -->
+                          <path d="M260 160 L260 250 L290 250" /> <!-- To Maps MCP -->
+                        </g>
+
+                        <!-- Arrows for ADK connections -->
+                        <path d="M290 100 L284 97 M290 100 L284 103" stroke="#334155" stroke-width="1.5" />
+                        <path d="M290 160 L284 157 M290 160 L284 163" stroke="#334155" stroke-width="1.5" />
+                        <path d="M290 250 L284 247 M290 250 L284 253" stroke="#334155" stroke-width="1.5" />
+
+                        <!-- Connections to Targets -->
+                        <g stroke="#334155" stroke-width="1.5">
+                          <path d="M440 160 L490 160" /> <!-- BQ MCP to Dataset -->
+                          <path d="M470 250 L530 250" /> <!-- Maps MCP to API -->
+                        </g>
+                        <path d="M490 160 L484 157 M490 160 L484 163" stroke="#334155" stroke-width="1.5" />
+                        <path d="M530 250 L524 247 M530 250 L524 253" stroke="#334155" stroke-width="1.5" />
+
+                        <!-- Node: Gemini -->
+                        <rect x="290" y="70" width="150" height="60" rx="12" fill="white" fill-opacity="0.05"
+                          stroke="white" stroke-opacity="0.2" />
+                        <text x="345" y="98" fill="#f1f5f9" font-family="Inter" font-size="11" font-weight="700">Gemini
+                          3
+                          Pro</text>
+                        <text x="345" y="112" fill="#94a3b8" font-family="Inter" font-size="9">Vertex AI</text>
+                        <path d="M310 90 L325 110 L310 110 L325 90 Z" fill="#38bdf8" fill-opacity="0.5" />
+
+                        <!-- Node: MCP Server BigQuery -->
+                        <rect x="290" y="140" width="150" height="60" rx="12" fill="#10b981" fill-opacity="0.1"
+                          stroke="#10b981" stroke-width="1" />
+                        <text x="345" y="165" fill="#f1f5f9" font-family="Inter" font-size="10" font-weight="700">MCP
+                          Server</text>
+                        <text x="345" y="178" fill="#f1f5f9" font-family="Inter" font-size="10" font-weight="700">for
+                          BigQuery</text>
+                        <circle cx="315" cy="170" r="12" fill="#10b981" fill-opacity="0.2" />
+
+                        <!-- Node: MCP Server Maps -->
+                        <rect x="290" y="220" width="180" height="60" rx="12" fill="#f59e0b" fill-opacity="0.1"
+                          stroke="#f59e0b" stroke-width="1" />
+                        <text x="345" y="245" fill="#f1f5f9" font-family="Inter" font-size="10" font-weight="700">MCP
+                          Server for Maps</text>
+                        <text x="345" y="258" fill="#94a3b8" font-family="Inter" font-size="9">Grounding Lite</text>
+
+                        <!-- Node: BigQuery Dataset -->
+                        <rect x="490" y="130" width="130" height="60" rx="12" fill="white" fill-opacity="0.05"
+                          stroke="white" stroke-opacity="0.1" />
+                        <text x="555" y="165" text-anchor="middle" fill="#f1f5f9" font-family="Inter" font-size="11"
+                          font-weight="700">BigQuery Dataset</text>
+
+                        <!-- Node: Maps APIs -->
+                        <rect x="530" y="220" width="100" height="60" rx="12" fill="white" fill-opacity="0.05"
+                          stroke="white" stroke-opacity="0.1" />
+                        <text x="580" y="255" text-anchor="middle" fill="#f1f5f9" font-family="Inter" font-size="10"
+                          font-weight="700">Maps APIs</text>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 3: Deep Dive Resources -->
+                <div class="pt-6">
+                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+                    <div class="aspect-video w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                      <iframe class="w-full h-full" src="https://www.youtube.com/embed/wzccErUYhTI"
+                        title="Architecture Deep Dive" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen></iframe>
+                    </div>
+                    <div>
+                      <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        Deep Dive Resources
+                      </h3>
+                      <p class="text-[13px] text-gray-300 leading-relaxed mb-6">
+                        Looking for more details? Explore the complete walkthrough of this project and the underlying
+                        ADK
+                        Framework.
+                      </p>
+                      <a href="https://github.com/google/mcp/tree/main/examples/launchmybakery" target="_blank"
+                        class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-[12px] font-bold text-sky-400 transition-all">
+                        <span>Read "MCP Launch My Bakery Example"</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14 5l7 7m0 0l-7 7m7-7H3">
+                          </path>
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </header>
+
+        <!-- Generation Form - Step 1 -->
+        <section id="section-step1" class="glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-sky-500/20">
+          <div class="flex items-center gap-3 mb-8">
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500 text-white font-bold shadow-lg shadow-sky-500/40">1</span>
+            <div>
+              <h2 class="text-xl font-bold text-white uppercase tracking-tight">Step 1: Define Business Challenge</h2>
+              <p class="text-[11px] text-gray-500">Select a template or describe your customer's problem</p>
+            </div>
+          </div>
+
+          <!-- Method Selection Cards -->
+          <div id="methodSelection" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <!-- Choice A: Template Gallery -->
+            <button onclick="selectMethod('template')"
+              class="relative group glass p-8 rounded-3xl border-2 border-sky-500/20 hover:border-sky-500/60 hover:bg-sky-500/10 transition-all text-left overflow-hidden shadow-2xl">
+              <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div class="relative z-10">
+                <div
+                  class="w-12 h-12 bg-sky-500/20 rounded-2xl flex items-center justify-center text-sky-400 mb-6 group-hover:scale-110 transition-transform">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Pick from Gallery</h3>
+                <p class="text-[12px] text-gray-400 leading-relaxed">Choose from pre-built scenarios across 6 industries
+                  and job functions.</p>
+                <div class="mt-6 flex items-center gap-2 text-sky-400 text-[10px] font-bold uppercase tracking-widest">
+                  <span>Start with Template</span>
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+
+            <!-- Choice B: Start from Scratch -->
+            <button onclick="selectMethod('manual')"
+              class="relative group glass p-8 rounded-3xl border-2 border-emerald-500/20 hover:border-emerald-500/60 hover:bg-emerald-500/10 transition-all text-left overflow-hidden shadow-2xl">
+              <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11 5h2v14h-2V5zm-4 4h2v10H7V9zm8 4h2v6h-2v-6z" />
+                </svg>
+              </div>
+              <div class="relative z-10">
+                <div
+                  class="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Start from Scratch</h3>
+                <p class="text-[12px] text-gray-400 leading-relaxed">Describe your own unique business challenge and
+                  requirements directly.</p>
+                <div
+                  class="mt-6 flex items-center gap-2 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">
+                  <span>Manual Input</span>
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          </div>
+          <!-- Container for Template Hub -->
+          <div id="templateContainer" class="hidden opacity-0 transition-all duration-500 transform translate-y-4">
+            <button onclick="switchMethod()"
+              class="mb-6 flex items-center gap-2 text-[10px] font-bold text-gray-500 hover:text-sky-400 transition-colors uppercase tracking-widest group">
+              <svg class="w-3 h-3 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              Switch Method
+            </button>
+            <div class="mb-8 p-6 bg-white/5 rounded-2xl border border-white/10 shadow-inner">
+              <div class="flex items-center gap-4 mb-4">
+                <label class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M13 10V3L4 14h7v7l9-11h-7z">
+                    </path>
+                  </svg>
+                  Template Hub
+                </label>
+                <div class="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 shadow-sm">
+                  <svg class="w-2.5 h-2.5 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129">
+                    </path>
+                  </svg>
+                  <select id="langSelector" onchange="updateSamples()"
+                    class="bg-transparent text-[9px] outline-none text-sky-400/80 font-bold px-1 py-0.5 cursor-pointer hover:text-sky-300 transition-colors">
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Industry Filter -->
+              <div class="mb-5">
+                <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-3">1. Select Industry</p>
+                <div id="industryFilters" class="flex flex-wrap gap-2">
+                  <!-- Industry filters will be injected here -->
+                </div>
+              </div>
+
+              <!-- Job Function Filter -->
+              <div class="mb-6">
+                <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-3">2. Filter by Job Function
+                </p>
+                <div id="jobFunctionFilters" class="flex flex-wrap gap-2">
+                  <!-- Job function filters will be injected here -->
+                </div>
+              </div>
+
+              <div class="border-t border-white/5 pt-6 mt-6">
+                <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-4">3. Select a Template</p>
+                <div id="templateGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <!-- Templates will be injected here -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Container for Manual Input -->
+          <div id="manualContainer" class="hidden opacity-0 transition-all duration-500 transform translate-y-4">
+            <button onclick="switchMethod()"
+              class="mb-6 flex items-center gap-2 text-[10px] font-bold text-gray-500 hover:text-emerald-400 transition-colors uppercase tracking-widest group">
+              <svg class="w-3 h-3 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              Switch Method
+            </button>
+            <div class="mb-6">
+              <div class="flex items-center justify-between mb-3 ml-1">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest">Detail the
+                  Business Scenario</label>
+                <button onclick="resetForm()"
+                  class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-700/30 hover:bg-gray-600/50 border border-gray-700/50 text-gray-400 hover:text-white text-[9px] font-bold transition-all">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                    </path>
+                  </svg>
+                  New Demo
+                </button>
+              </div>
+              <textarea id="userGoal" rows="4" oninput="localStorage.setItem('ge_generator_input', this.value)"
+                class="w-full bg-gray-900/50 border border-gray-700 rounded-2xl p-4 text-gray-100 placeholder-gray-600 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-inner leading-relaxed"
+                placeholder="Example: How to help a retail chain in London optimize seasonal stock based on demographic shifts and regional foot traffic trends?"></textarea>
+            </div>
+          </div>
+
+          <!-- Advanced Settings Toggle -->
+          <div class="mt-8 pt-2">
+            <button onclick="toggleAdvancedSettings()" type="button"
+              class="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-300 transition-colors group">
+              <svg class="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                </path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                </path>
+              </svg>
+              <span>Advanced Settings</span>
+              <svg id="advancedChevron" class="w-3 h-3 text-gray-600 transition-transform duration-300" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+
+            <div id="advancedSettingsContent" class="hidden mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Synthesis
+                  Volume</label>
+                <select id="rowCount"
+                  class="w-full bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200">
+                  <option value="50">Compact (50 rows)</option>
+                  <option value="100" selected>Standard (100 rows) [Recommended]</option>
+                  <option value="150">Deep (150 rows)</option>
+                </select>
+                <p class="text-[9px] text-gray-500 mt-2 italic">* Rows per generated table.</p>
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Dataset
+                  Complexity</label>
+                <select id="tableCount"
+                  class="w-full bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200">
+                  <option value="1">Minimal (1 Table)</option>
+                  <option value="2">Standard (2 Tables)</option>
+                  <option value="3">Advanced (3 Tables)</option>
+                  <option value="4">Complex (4 Tables)</option>
+                  <option value="5" selected>Enterprise (5 Tables) [Recommended]</option>
+                </select>
+                <p class="text-[9px] text-gray-500 mt-2 italic">* Number of synthetic tables to generate.</p>
+              </div>
+
+              <div class="md:col-span-3 pt-4 border-t border-white/5 space-y-4">
+                <div class="flex items-center justify-between">
+                  <label class="flex items-center gap-3 cursor-pointer group">
+                    <div class="relative">
+                      <input id="usePublicDataset" type="checkbox" class="sr-only peer"
+                        onchange="togglePublicDatasetOverride()">
+                      <div
+                        class="w-10 h-5 bg-gray-700 rounded-full peer peer-checked:bg-sky-500 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5">
+                      </div>
+                    </div>
+                    <span
+                      class="text-[10px] font-bold text-gray-400 uppercase tracking-widest group-hover:text-gray-300 transition-colors">Use
+                      BigQuery Public Dataset for JOINs</span>
+                  </label>
+                </div>
+
+
+                <div id="publicOverrideContainer" class="opacity-50 pointer-events-none transition-all ml-13">
+                  <label class="block text-[9px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Optional:
+                    Public
+                    Dataset Override</label>
+                  <input id="publicDatasetId" type="text"
+                    class="w-full max-w-md bg-gray-800/50 border border-gray-600 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-600 focus:border-sky-500 outline-none transition-all"
+                    placeholder="bigquery-public-data.dataset.table">
+                  <p class="text-[9px] text-gray-500 mt-2 italic">* Leave blank to auto-discover. Format: <code
+                      class="text-sky-400/80">project.dataset.table</code></p>
+                </div>
+
+                <p class="text-[9px] text-gray-500 mt-2 ml-13 italic">Enable this to enrich the demo by joining
+                  synthetic data with real public records. May increase generation time.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <button id="generateBtn" onclick="generateDemo()"
+            class="mt-10 w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-sky-500/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-3 group">
+            <div class="flex flex-col items-center">
+              <span id="btnText" class="text-lg uppercase tracking-widest">Generate Setup Script & Assets</span>
+              <span class="text-[10px] opacity-70 font-normal tracking-tight mt-1">This generates a .sh script to be
+                executed in Cloud Shell</span>
+            </div>
+            <svg id="btnSpinner" class="hidden w-6 h-6 spinner" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+              </path>
+            </svg>
+            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </section>
+
+        <!-- Progress Indicator -->
+        <section id="stepsSection" class="hidden glass rounded-2xl p-6 mb-10 fade-in border border-sky-500/30">
+          <div class="space-y-4">
+            <div id="progress-step-1" class="flex items-center gap-4 transition-all duration-300">
+              <div class="step-icon w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                1</div>
+              <div class="flex-1">
+                <p class="text-[11px] font-bold text-gray-300 uppercase tracking-tighter">Domain Logic & Data Synthesis
+                </p>
+                <p class="text-[9px] text-gray-500 step-message italic">Synthesizing...</p>
+              </div>
+            </div>
+            <div id="progress-step-2" class="flex items-center gap-4 transition-all duration-300">
+              <div class="step-icon w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                2</div>
+              <div class="flex-1">
+                <p class="text-[11px] font-bold text-gray-300 uppercase tracking-tighter">Deployable Bundle Packaging
+                </p>
+                <p class="text-[9px] text-gray-500 step-message italic">Waiting...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estimated Time Notice & Cancel Button -->
+          <div class="mt-6 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-[9px] text-gray-500 italic">
+              <svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>Estimated: 1-3 minutes depending on data complexity</span>
+            </div>
+            <button onclick="cancelGeneration()"
+              class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-bold uppercase tracking-widest transition-all active:scale-95">
+              Cancel Generation
+            </button>
+          </div>
+
+          <!-- Terminal-style Dynamic Logs -->
+          <div class="mt-6 p-4 bg-black/40 rounded-xl border border-white/5 font-mono overflow-hidden">
+            <div id="generationLogs" class="space-y-1 h-[200px] overflow-y-auto custom-scrollbar">
+              <div class="text-[9px] text-gray-500 italic opacity-50">Initializing system synthesis engines...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection"
+          class="hidden glass rounded-2xl p-6 mb-10 border-l-4 border-red-500 fade-in text-red-100 text-xs font-mono">
+          <p id="errorMessage"></p>
+        </section>
+
+        <!-- Result Section -->
+        <section id="resultSection" class="hidden space-y-10 fade-in mb-10">
+
+          <!-- Post-Synthesis Roadmap -->
+          <div id="postSynthesisRoadmap" class="glass rounded-3xl p-8 border border-sky-500/30 bg-sky-500/5 mb-10">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                  </path>
+                </svg>
+                Script Generated! What happens next?
+              </h3>
+            </div>
+            <div class="space-y-8 ml-2">
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-sky-400 uppercase tracking-tight mb-1">Step 2: Review Generated Assets
+                </h4>
+                <p class="text-xs text-gray-400">Audit the synthesized data and agent instructions below. You can refine
+                  them before deployment.</p>
+              </div>
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">Step 3: Run in Your Cloud
+                  Shell
+                </h4>
+                <p class="text-xs text-gray-400">Copy the setup script in <b>Step 3</b> and paste it into YOUR Google
+                  Cloud Shell. The setup script will provision resources in your environment.</p>
+              </div>
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">Step 4: Launch Live Demo</h4>
+                <p class="text-xs text-gray-400">Once the script completes, launch the agent UI from Cloud Shell and use
+                  the prompts in <b>Step 4</b>.</p>
+              </div>
+              <div class="roadmap-step">
+                <div class="roadmap-dot"></div>
+                <h4 class="text-sm font-bold text-gray-200 uppercase tracking-tight mb-1">Step 5: Deploy to Gemini
+                  Enterprise</h4>
+                <p class="text-xs text-gray-400">Once verified, scale your demo by deploying to Vertex AI Agent Engine.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Review & Customize Assets -->
+          <div id="section-step2" class="glass rounded-3xl p-8 border border-white/5 scroll-mt-8">
+            <div class="flex items-center gap-3 mb-8">
+              <span
+                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500 text-white font-bold shadow-lg shadow-sky-500/40">2</span>
+              <h2 class="text-xl font-bold text-white uppercase tracking-tight">Step 2: Review & Customize Assets</h2>
+            </div>
+
+            <!-- System Instruction -->
+            <div class="mb-10">
+              <label
+                class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                Refine Agent Persona & Instructions
+                <span
+                  class="text-[8px] font-normal lowercase opacity-60 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">Dynamic
+                  script update</span>
+              </label>
+              <textarea id="systemInstruction" oninput="updateScriptLocally()" rows="3"
+                class="w-full bg-black/40 border border-gray-700 rounded-2xl p-5 text-[11px] text-sky-200 font-mono transition-all focus:ring-1 focus:ring-sky-500 shadow-inner leading-relaxed"></textarea>
+            </div>
+
+            <!-- Data Preview -->
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest">Audit Synthesized
+                  Data Library</label>
+                <button onclick="downloadAllCSV()"
+                  class="text-[9px] text-sky-400 font-bold border-b border-sky-400/30 hover:text-sky-300 transition-colors uppercase font-mono">Download
+                  Raw CSVs</button>
+              </div>
+
+              <!-- Data DNA Badges -->
+              <div id="dataDnaBadges"
+                class="hidden mb-6 p-4 rounded-xl bg-gradient-to-br from-purple-900/20 to-sky-900/10 border border-purple-500/20">
+                <div class="flex items-center gap-2 mb-3">
+                  <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
+                    </path>
+                  </svg>
+                  <span class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Data DNA — AI-Applied
+                    Realism Factors</span>
+                </div>
+                <div class="flex flex-wrap gap-2" id="dataDnaBadgesContainer"></div>
+              </div>
+
+              <!-- ER Diagram (Step 2.5) -->
+              <div id="erDiagramSection" class="hidden mb-10">
+                <div class="flex items-center justify-between mb-4">
+                  <label
+                    class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01">
+                      </path>
+                    </svg>
+                    Data Architecture & Relationships
+                  </label>
+                  <span
+                    class="text-[8px] font-normal lowercase opacity-60 bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20">Interactive
+                    Diagram</span>
+                </div>
+                <div class="glass p-1 rounded-2xl border border-white/5 relative overflow-hidden group">
+                  <div id="erDiagramContainer"></div>
+                  <!-- Legend -->
+                  <div class="absolute bottom-4 left-4 flex flex-col gap-1.5 pointer-events-none">
+                    <div class="flex items-center gap-2">
+                      <div class="w-3 h-3 rounded bg-sky-500/20 border border-sky-400"></div>
+                      <span class="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Table (Node)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="w-6 h-0.5 bg-sky-400/40"></div>
+                      <span class="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Relationship
+                        (Edge)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="dataPreview" class="space-y-4"></div>
+
+            </div>
+          </div>
+
+          <!-- Step 3: Deploy -->
+          <div id="section-step3"
+            class="glass rounded-3xl p-10 border border-emerald-500/40 shadow-2xl shadow-emerald-900/20 bg-gradient-to-br from-emerald-900/10 to-transparent scroll-mt-8">
+            <div class="flex items-center justify-between gap-4 mb-10">
+              <div class="flex items-center gap-4">
+                <span
+                  class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold text-xl shadow-lg shadow-emerald-500/40">3</span>
+                <div>
+                  <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Step 3: Deploy</h2>
+                  <p class="text-[11px] text-gray-500">Run the synthesized environment in your own GCP project</p>
+                </div>
+              </div>
+              <a href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_tutorial=tutorial.md&cloudshell_git_repo=https://github.com/ryotat7/ge-demo-generator.git"
+                target="_blank" rel="noopener noreferrer"
+                class="px-4 py-2 bg-sky-600/80 hover:bg-sky-500 text-white font-bold rounded-xl text-[10px] transition-all shadow-lg flex items-center gap-2 uppercase tracking-wider border border-sky-400/20 hover:scale-105">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
+                  </path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Launch Tutorial
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+              </a>
+            </div>
+
+            <!-- Step 3.1: Configure Cloud Shell & Project -->
+            <div class="mb-10">
+              <div class="flex items-center gap-3 mb-6">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs border border-emerald-500/30">1</span>
+                <h3 class="text-sm font-bold text-gray-200 uppercase tracking-widest">Environment Setup</h3>
+              </div>
+
+              <div class="space-y-6">
+                <div
+                  class="p-6 bg-black/40 border border-emerald-500/20 rounded-3xl transition-all hover:bg-black/60 shadow-xl space-y-4">
+                  <div class="flex items-start gap-4">
+                    <div
+                      class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0 mt-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+                      </svg>
+                    </div>
+                    <div class="flex-1 space-y-4">
+                      <p class="text-[13px] text-gray-300 leading-relaxed">
+                        1. <a href="https://console.cloud.google.com?cloudshell=true" target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-emerald-400 hover:text-emerald-300 underline underline-offset-2">Open Cloud
+                          Shell</a>, set your
+                        <b>Active Project ID</b>, and prepare your home directory.
+                      </p>
+                      <div class="relative max-w-md">
+                        <input type="text" id="projectIdInput"
+                          class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-mono text-emerald-400 focus:outline-none focus:border-emerald-500/50 transition-all placeholder-gray-600"
+                          placeholder="my-project-id" value="" oninput="updateProjectSetCmd()">
+                        <span
+                          class="absolute right-4 top-2.5 text-[8px] text-gray-500 uppercase tracking-widest font-bold">PROJECT
+                          ID</span>
+                      </div>
+
+                      <div class="relative group/cmd">
+                        <code id="projectSetCmdDisplay"
+                          class="block bg-black/30 border border-emerald-500/10 rounded-xl p-4 text-[11px] text-emerald-300 font-mono pr-12 leading-relaxed tracking-tight">gcloud config set project [PROJECT_ID] && cd ~</code>
+                        <button onclick="copyProjectCmd()"
+                          class="absolute top-2.5 right-2.5 p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-lg border border-emerald-500/30">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                            </path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="p-6 bg-sky-500/5 rounded-3xl border border-sky-500/10 space-y-4">
+                  <div class="flex items-start gap-4">
+                    <div
+                      class="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0 mt-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                        </path>
+                      </svg>
+                    </div>
+                    <div class="flex-1 space-y-4">
+                      <p class="text-[13px] text-gray-300 leading-relaxed">
+                        2. <b>Authenticate gcloud</b> to ensure your terminal has necessary permissions to deploy
+                        resources.
+                      </p>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="relative group/cmd">
+                          <code
+                            class="block bg-black/40 border border-sky-500/20 rounded-xl p-3 text-[10px] text-sky-300 font-mono pr-12">gcloud auth login</code>
+                          <button onclick="copyToClipboard('gcloud auth login')"
+                            class="absolute top-2 right-2 p-1.5 rounded-lg bg-sky-500/10 text-sky-400 hover:bg-sky-500 hover:text-white transition-all border border-sky-500/20">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                              </path>
+                            </svg>
+                          </button>
+                        </div>
+                        <div class="relative group/cmd">
+                          <code
+                            class="block bg-black/40 border border-sky-500/20 rounded-xl p-3 text-[10px] text-sky-300 font-mono pr-12">gcloud auth application-default login</code>
+                          <button onclick="copyToClipboard('gcloud auth application-default login')"
+                            class="absolute top-2 right-2 p-1.5 rounded-lg bg-sky-500/10 text-sky-400 hover:bg-sky-500 hover:text-white transition-all border border-sky-500/20">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                              </path>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3.2: Execute & Confirm -->
+            <div>
+              <div class="flex items-center gap-3 mb-6">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs border border-emerald-500/30">2</span>
+                <h3 class="text-sm font-bold text-gray-200 uppercase tracking-widest">Execute & Confirm</h3>
+              </div>
+
+              <div class="space-y-6">
+                <div class="flex-1">
+                  <div class="flex items-center justify-between mb-4">
+                    <p class="text-[13px] text-gray-300 leading-relaxed">
+                      Copy and paste the setup script into your Cloud Shell. And then hit the enter key.
+                    </p>
+                    <button onclick="copyToClipboard(document.getElementById('setupCommand').innerText)"
+                      class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-[11px] transition-all shadow-lg flex items-center gap-2 uppercase tracking-wider flex-shrink-0 ml-4">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                        </path>
+                      </svg>
+                      Copy Setup Command
+                    </button>
+                  </div>
+
+                  <div class="relative group min-w-0">
+                    <div id="scriptContainer"
+                      class="bg-black/80 rounded-2xl border border-white/5 transition-all max-h-40 overflow-hidden cursor-pointer relative group/script"
+                      onclick="toggleScriptExpansion()">
+
+                      <!-- Floating Download Button (Icon only, subtle) - Top-right sticky -->
+                      <div class="sticky top-0 z-30 h-0 w-full flex justify-end">
+                        <button onclick="downloadScript(); event.stopPropagation();"
+                          class="mt-4 mr-4 w-9 h-9 flex items-center justify-center rounded-xl bg-gray-900/60 hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 transition-all border border-white/10 backdrop-blur-md shadow-xl group/download pointer-events-auto"
+                          title="Download setup script">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                          </svg>
+                        </button>
+                      </div>
+
+                      <pre id="setupCommand"
+                        class="p-6 pb-4 text-[11px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all"></pre>
+
+                      <div
+                        class="sticky bottom-0 left-0 right-0 z-10 flex justify-center py-4 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none"
+                        id="stickyBtnWrapper">
+                        <button onclick="toggleScriptExpansion(); event.stopPropagation();" id="inlineToggleBtn"
+                          class="pointer-events-auto px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-full shadow-xl shadow-sky-500/20 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 border border-white/10 group/btn">
+                          <svg id="inlineToggleIcon" class="w-3.5 h-3.5 transition-transform duration-300" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                          </svg>
+                          <span id="inlineToggleText" class="text-[10px] uppercase tracking-wider">Show Full
+                            Script</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Setup Script Configurations -->
+              <div class="mt-8 space-y-4">
+                <h4 class="text-[12px] font-bold text-gray-300 uppercase tracking-widest flex items-center gap-2">
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  Deployment Strategies
+                </h4>
+                <p class="text-[13px] text-gray-400 leading-relaxed mb-4">
+                  During the setup script execution, you will be prompted to select one of three deployment strategies:
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <!-- Strategy 1 -->
+                  <div
+                    class="bg-black/40 border border-white/5 rounded-xl p-4 hover:border-emerald-500/30 transition-all shadow-lg flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="w-5 h-5 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-[10px] font-bold">1</span>
+                      <h5 class="text-[11px] font-bold text-gray-300 uppercase tracking-wide">Local Host</h5>
+                    </div>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">
+                      Runs the agent server locally. If you choose this, proceed to the <span
+                        class="text-emerald-400 font-bold">Next Step: Open Local Server</span> section below.
+                    </p>
+                  </div>
+                  <!-- Strategy 2 -->
+                  <div
+                    class="bg-black/40 border border-white/5 rounded-xl p-4 hover:border-sky-500/30 transition-all shadow-lg flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="w-5 h-5 rounded-md bg-sky-500/10 text-sky-400 flex items-center justify-center text-[10px] font-bold">2</span>
+                      <h5 class="text-[11px] font-bold text-gray-300 uppercase tracking-wide">Cloud Run</h5>
+                    </div>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">
+                      Deploys the agent server to Google Cloud Run as a publicly accessible endpoint.
+                    </p>
+                  </div>
+                  <!-- Strategy 3 -->
+                  <div
+                    class="bg-black/40 border border-white/5 rounded-xl p-4 hover:border-purple-500/30 transition-all shadow-lg flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="w-5 h-5 rounded-md bg-purple-500/10 text-purple-400 flex items-center justify-center text-[10px] font-bold">3</span>
+                      <h5 class="text-[11px] font-bold text-gray-300 uppercase tracking-wide">Gemini Enterprise</h5>
+                    </div>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">
+                      Deploys to Reasoning Engine and registers it. If chosen, skip to <span
+                        class="text-purple-400 font-bold">Step 5: Deploy to Gemini Enterprise</span>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Next Step: Open Local Server Banner -->
+            <div class="mt-8 p-5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 flex items-start gap-4">
+              <div class="text-emerald-400 mt-0.5">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6">
+                  </path>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h4 class="text-[12px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Next Step: Open Local
+                  Server</h4>
+                <p class="text-[13px] text-emerald-300/80 leading-relaxed">
+                  When the script completes, click the
+                  <code
+                    class="text-emerald-300 font-mono bg-black/30 px-1.5 py-0.5 rounded">http://127.0.0.1:[PORT]</code>
+                  link shown in your terminal to open the UI.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 4: Run Live Demo -->
+        <div id="section-step4"
+          class="hidden glass rounded-3xl p-10 border border-emerald-500/40 shadow-2xl shadow-emerald-900/20 bg-gradient-to-br from-emerald-900/10 to-transparent scroll-mt-8 mb-10">
+          <div class="flex items-center gap-4 mb-10">
+            <span
+              class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold text-xl shadow-lg shadow-emerald-500/40">4</span>
+            <div>
+              <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Step 4: Run Live Demo</h2>
+              <p class="text-[11px] text-gray-500">Engage with your agent using personalized scenarios</p>
+            </div>
+          </div>
+
+          <!-- Consolidated Local Management Section -->
+          <div class="mb-10">
+            <button onclick="toggleLocalManagement()" type="button"
+              class="w-full flex items-center justify-between p-6 bg-black/40 rounded-3xl border border-white/10 hover:border-sky-500/30 transition-all group/toggle">
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-400 group-hover/toggle:scale-110 transition-transform">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                    </path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                    </path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white uppercase tracking-tight">How to manage the local host demo
+                  </h3>
+                  <p class="text-[10px] text-gray-500">Authentication required & local environment commands</p>
+                </div>
+              </div>
+              <svg id="localMgmtChevron" class="w-5 h-5 text-gray-500 transition-transform duration-300" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+
+            <div id="localMgmtContent" class="hidden mt-6 space-y-6 animate-slide-down">
+              <!-- Auth Requirement Warning -->
+              <div class="p-6 bg-red-500/5 rounded-2xl border border-red-500/20 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h4 class="text-[12px] font-bold text-red-400 uppercase tracking-widest mb-1">Authentication Required
+                  </h4>
+                  <p class="text-[13px] text-red-300/80 leading-relaxed mb-4">
+                    Before proceeding, ensure you have executed <b>both</b> commands below in your terminal.
+                  </p>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="relative group/cmd">
+                      <code
+                        class="block bg-black/40 border border-red-500/20 rounded-xl p-3 text-[11px] text-red-200 font-mono">gcloud auth login</code>
+                      <button onclick="copyToClipboard('gcloud auth login')"
+                        class="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white opacity-0 group-hover/cmd:opacity-100 transition-all border border-gray-700">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                          </path>
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="relative group/cmd">
+                      <code
+                        class="block bg-black/40 border border-red-500/20 rounded-xl p-3 text-[11px] text-red-200 font-mono">gcloud auth application-default login</code>
+                      <button onclick="copyToClipboard('gcloud auth application-default login')"
+                        class="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white opacity-0 group-hover/cmd:opacity-100 transition-all border border-gray-700">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                          </path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Managing the Agent UI (ADK Web) -->
+              <div class="p-6 bg-black/30 rounded-2xl border border-white/5">
+                <div class="flex items-center gap-2 mb-4">
+                  <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                      </path>
+                    </svg>
+                    Managing the Agent UI (adk web)
+                  </h3>
+                  <span class="tooltip-container">
+                    <svg class="w-3.5 h-3.5 text-sky-400/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="tooltip-content">
+                      <strong>ADK (Agent Development Kit)</strong> provides a local web interface to test and refine
+                      your agent's reasoning before deploying it to Agent Engine.
+                    </span>
+                  </span>
+                </div>
+
+                <p class="text-[12px] text-gray-400 mb-6 leading-relaxed">
+                  Open your terminal and navigate to the <strong>adk_agent</strong> folder inside the generated demo
+                  directory (<code id="adkDirPlaceholder2" class="text-sky-300 font-mono">demo-directory</code>).
+                </p>
+
+                <div
+                  class="mb-6 p-4 bg-black/40 rounded-xl border border-white/5 hover:border-sky-500/30 transition-all shadow-inner group/cmd relative">
+                  <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 text-center">Navigate to
+                    Agent Folder</p>
+                  <div class="flex items-center justify-center gap-3">
+                    <code id="cdCommandBlockStep4"
+                      class="text-[13px] text-sky-300 font-mono bg-sky-950/30 px-3 py-1.5 rounded-lg border border-sky-500/20">cd ~/demo-directory/adk_agent</code>
+                    <button onclick="copyToClipboard(document.getElementById('cdCommandBlockStep4').innerText)"
+                      class="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-all border border-gray-700 shadow-sm">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                        </path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div
+                    class="p-4 bg-black/40 rounded-xl border border-white/5 hover:border-sky-500/30 transition-all shadow-inner group/cmd relative">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">To START Agent UI</p>
+                    <code
+                      class="text-[12px] text-sky-300 font-mono bg-sky-950/30 px-2 py-1 rounded">../.venv/bin/adk web</code>
+                    <button onclick="copyToClipboard('../.venv/bin/adk web')"
+                      class="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white opacity-0 group-hover/cmd:opacity-100 transition-all border border-gray-700">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                        </path>
+                      </svg>
+                    </button>
+                    <p class="text-[9px] text-gray-500 mt-2 font-medium italic">
+                      Note: The setup script auto-detects a free port (e.g. 8001) if 8000 is occupied.
+                    </p>
+                  </div>
+                  <div
+                    class="p-4 bg-black/40 rounded-xl border border-white/5 hover:border-sky-500/30 transition-all shadow-inner">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">To STOP</p>
+                    <div class="flex items-center gap-2 text-[12px] text-gray-300">
+                      <kbd
+                        class="px-2 py-1 bg-gray-800 border-b-2 border-gray-900 rounded-lg font-mono text-white text-[10px]">Ctrl</kbd>
+                      <span>+</span>
+                      <kbd
+                        class="px-2 py-1 bg-gray-800 border-b-2 border-gray-900 rounded-lg font-mono text-white text-[10px]">C</kbd>
+                    </div>
+                  </div>
+                  <div
+                    class="p-4 bg-black/40 rounded-xl border border-white/5 hover:border-sky-500/30 transition-all shadow-inner group/cmd relative">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">To RESTART</p>
+                    <p class="text-[11px] text-gray-400 leading-relaxed mb-1">Stop (Ctrl+C), then run:</p>
+                    <code
+                      class="text-sky-300 font-mono bg-sky-950/30 px-1 rounded block text-[12px]">../.venv/bin/adk web</code>
+                    <button onclick="copyToClipboard('../.venv/bin/adk web')"
+                      class="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white opacity-0 group-hover/cmd:opacity-100 transition-all border border-gray-700">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                        </path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between mb-6">
+            <label
+              class="block text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                </path>
+              </svg>
+              Recommended Demo Flow (Tailored Prompts)
+            </label>
+          </div>
+          <div id="demoGuideSteps" class="grid grid-cols-1 gap-4">
+            <!-- Prompts will be injected here -->
+          </div>
+        </div>
+
+        <!-- Step 5: Agent Engine & Gemini Enterprise Deployment (Optional) -->
+        <section id="section-step5"
+          class="hidden glass rounded-3xl p-6 lg:p-8 mb-10 fade-in shadow-xl ring-2 ring-emerald-500/10">
+          <div class="flex items-center gap-3 mb-8">
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/40 text-sm">5</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-xl font-bold text-white uppercase tracking-tight">Step 5: Deploy to Gemini Enterprise
+                </h2>
+                <span class="tooltip-container">
+                  <svg class="w-4 h-4 text-emerald-400/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span class="tooltip-content">
+                    <strong>Vertex AI Agent Engine</strong> is the scalable hosting environment for Gemini
+                    Enterprise
+                    agents, providing security and global endpoints.
+                  </span>
+                </span>
+              </div>
+              <p class="text-[11px] text-gray-500">Scale your demo by deploying to Vertex AI Agent Engine and register
+                it to Gemini Enterprise</p>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <!-- Step 1: Create Instance -->
+            <div
+              class="p-6 bg-white/5 rounded-3xl border border-white/10 group hover:border-purple-500/30 transition-all space-y-4 shadow-xl shadow-purple-900/5">
+              <div class="flex items-start gap-4">
+                <div
+                  class="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400 font-bold text-xs border border-purple-500/30 shrink-0 mt-1">
+                  1</div>
+                <div class="flex-1 space-y-4">
+                  <div>
+                    <h3 class="text-xs font-bold text-gray-200 uppercase tracking-widest mb-2">Create Gemini Enterprise
+                      Instance
+                    </h3>
+                    <p class="text-[12px] text-gray-400 leading-relaxed">
+                      Ensure a <b>Gemini Enterprise instance</b> has been created in your project. Click the button
+                      below to open
+                      the console and initialize the product.
+                    </p>
+                  </div>
+                  <a href="https://console.cloud.google.com/gemini-enterprise/apps" id="geminiEnterpriseLink"
+                    target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-[11px] transition-all shadow-lg uppercase tracking-wider group-hover:scale-105 active:scale-95 border border-purple-400/30">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                    Deploy Gemini Enterprise
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2: Run Setup Script -->
+            <div
+              class="p-6 bg-white/5 rounded-3xl border border-white/10 group hover:border-emerald-500/30 transition-all space-y-4 shadow-xl shadow-emerald-900/5">
+              <div class="flex items-start gap-4">
+                <div
+                  class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs border border-emerald-500/30 shrink-0 mt-1">
+                  2</div>
+                <div class="flex-1 space-y-4">
+                  <div>
+                    <h3 class="text-xs font-bold text-gray-200 uppercase tracking-widest mb-2">Execute Deployment Script
+                    </h3>
+                    <p class="text-[12px] text-gray-400 leading-relaxed">
+                      Navigate to your home directory and run the setup script you downloaded in step 3 using the
+                      command below.
+                      Select the <b>3rd deployment strategy</b> (Automated Agent Engine Deployment) when prompted.
+                    </p>
+                  </div>
+
+                  <div class="relative group min-w-0">
+                    <code id="step5SetupCommandBlock"
+                      class="block bg-black/60 rounded-xl p-5 text-[12px] font-mono text-emerald-400 border border-emerald-500/20 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed pr-14 tracking-tight">cd ~ && bash setup.sh</code>
+                    <button onclick="copyToClipboard('cd ~ && bash ' + currentScriptFilename)"
+                      class="absolute top-3 right-3 p-2.5 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-xl border border-emerald-500/30">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                        </path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+        </section>
+      </div>
+    </main>
+
+
+  </div>
+
+  <!-- Usage Tracking Modal -->
+
+
+  <div id="toast">Copied to clipboard!</div>
+
+  <script>
+    let currentData = null;
+
+    function toggleLeftSidebar() {
+      const sidebar = document.getElementById('leftSidebar');
+      const toggle = document.getElementById('leftToggle');
+      sidebar.classList.toggle('sidebar-collapsed-left');
+      if (sidebar.classList.contains('sidebar-collapsed-left')) {
+        toggle.classList.remove('opacity-0', 'pointer-events-none');
+        toggle.classList.add('opacity-100', 'pointer-events-auto');
+      } else {
+        toggle.classList.add('opacity-0', 'pointer-events-none');
+        toggle.classList.remove('opacity-100', 'pointer-events-auto');
+      }
+    }
+
+
+
+    function toggleLocalManagement() {
+      const content = document.getElementById('localMgmtContent');
+      const chevron = document.getElementById('localMgmtChevron');
+      const isHidden = content.classList.contains('hidden');
+
+      if (isHidden) {
+        content.classList.remove('hidden');
+        setTimeout(() => chevron.classList.add('rotate-180'), 10);
+      } else {
+        chevron.classList.remove('rotate-180');
+        setTimeout(() => content.classList.add('hidden'), 300);
+      }
+    }
+
+    // Global Toast Utility
+    window.showToast = function (msg, duration = 3000) {
+      if (!msg) return;
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-gray-900/90 text-white rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl z-[9999] transition-all duration-300 opacity-0 translate-y-4 flex items-center gap-3';
+      toast.innerHTML = `
+        <div class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></div>
+        <span class="text-sm font-medium tracking-tight">${msg}</span>
+      `;
+      document.body.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-4');
+        toast.classList.add('opacity-100', 'translate-y-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-4');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    };
+
+    // State management
+    let currentSetupScript = '';
+    let currentScriptFilename = 'setup.sh';
+
+    function selectMethod(method) {
+      const selection = document.getElementById('methodSelection');
+      const template = document.getElementById('templateContainer');
+      const manual = document.getElementById('manualContainer');
+
+      // Hide selection with fade out
+      selection.classList.add('opacity-0', 'pointer-events-none');
+
+      setTimeout(() => {
+        selection.classList.add('hidden');
+        if (method === 'template') {
+          template.classList.remove('hidden');
+          setTimeout(() => {
+            template.classList.remove('opacity-0', 'translate-y-4');
+            template.classList.add('opacity-100', 'translate-y-0');
+          }, 50);
+        } else {
+          manual.classList.remove('hidden');
+          setTimeout(() => {
+            manual.classList.remove('opacity-0', 'translate-y-4');
+            manual.classList.add('opacity-100', 'translate-y-0');
+          }, 50);
+        }
+      }, 300);
+    }
+
+    function switchMethod() {
+      const selection = document.getElementById('methodSelection');
+      const template = document.getElementById('templateContainer');
+      const manual = document.getElementById('manualContainer');
+
+      template.classList.add('opacity-0', 'translate-y-4');
+      manual.classList.add('opacity-0', 'translate-y-4');
+
+      setTimeout(() => {
+        template.classList.add('hidden');
+        manual.classList.add('hidden');
+        selection.classList.remove('hidden');
+        setTimeout(() => selection.classList.remove('opacity-0', 'pointer-events-none'), 50);
+      }, 300);
+    }
+
+
+    const GenerationLogger = {
+      phrases: {
+        en: [
+          { tag: 'info', msg: 'Initializing system configuration...' },
+          { tag: 'ai', msg: 'Analyzing industry data models...' },
+          { tag: 'ai', msg: 'Designing relational schema structures...' },
+          { tag: 'info', msg: 'Generating synthetic data and MCP resources...' },
+          { tag: 'ai', msg: 'Crafting system instructions for Gemini...' },
+          { tag: 'info', msg: 'Constructing Gcloud deployment scripts...' },
+          { tag: 'ai', msg: 'Optimizing agent reasoning chains...' },
+          { tag: 'success', msg: 'Resource bundling complete.' },
+          { tag: 'info', msg: 'Finalizing executable artifact...' },
+          { tag: 'wait', msg: 'Waiting for response... (this may take a minute)' }
+        ]
+      },
+      timer: null,
+      start: function () {
+        const container = document.getElementById('generationLogs');
+        if (!container) return;
+        const logs = this.phrases.en;
+        container.innerHTML = '';
+        let index = 0;
+
+        const addLog = () => {
+          if (index >= logs.length) {
+            clearInterval(this.timer);
+            return;
+          }
+          const item = logs[index];
+          const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const div = document.createElement('div');
+          div.className = 'log-line';
+          div.innerHTML = `
+            <span class="log-ts">[${time}]</span>
+            <span class="log-tag log-tag-${item.tag}">${item.tag}</span>
+            <span class="log-msg">${item.msg}</span>
+          `;
+          container.appendChild(div);
+          container.scrollTop = container.scrollHeight;
+          index++;
+        };
+
+        addLog();
+        this.timer = setInterval(addLog, 4000 + Math.random() * 3000);
+      },
+      stop: function () {
+        if (this.timer) clearInterval(this.timer);
+      }
+    };
+    let currentDomainName = '';
+    let isCancelled = false;
+    let step2Timer = null;
+
+    function cancelGeneration() {
+      isCancelled = true;
+      GenerationLogger.stop();
+      if (step2Timer) clearTimeout(step2Timer);
+
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = false;
+      document.getElementById('btnSpinner').classList.add('hidden');
+      document.getElementById('btnText').innerText = 'Generate Setup Script & Assets';
+
+      document.getElementById('stepsSection').classList.add('hidden');
+      showToast('Generation cancelled');
+    }
+
+    function toggleArchitecture() {
+      const content = document.getElementById('architectureContent');
+      const btn = event.currentTarget; // Get the button that was clicked
+      if (!content) return;
+
+      const isHidden = content.classList.toggle('hidden');
+      if (btn) {
+        btn.setAttribute('data-open', !isHidden);
+      }
+
+      if (!isHidden) {
+        content.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function toggleAdvancedSettings() {
+      const content = document.getElementById('advancedSettingsContent');
+      const chevron = document.getElementById('advancedChevron');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotated');
+    }
+
+    function resetForm() {
+      // Clear form inputs
+      document.getElementById('userGoal').value = '';
+      document.getElementById('rowCount').value = '100';
+      document.getElementById('tableCount').value = '5';
+      document.getElementById('publicDatasetId').value = '';
+      if (document.getElementById('projectIdInput')) {
+        document.getElementById('projectIdInput').value = '';
+        updateProjectSetCmd();
+      }
+
+      // Hide result sections
+      document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('section-step4').classList.add('hidden');
+      document.getElementById('section-step5').classList.add('hidden');
+      document.getElementById('errorSection').classList.add('hidden');
+      document.getElementById('stepsSection').classList.add('hidden');
+
+      // Reset current data
+      currentData = null;
+      currentSetupScript = '';
+
+      document.getElementById('usePublicDataset').checked = false;
+      togglePublicDatasetOverride();
+
+      // Scroll to top
+      document.getElementById('section-step1').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function toggleScriptExpansion() {
+      const container = document.getElementById('scriptContainer');
+      const pre = document.getElementById('setupCommand');
+      const text = document.getElementById('inlineToggleText');
+      const icon = document.getElementById('inlineToggleIcon');
+      const btn = document.getElementById('inlineToggleBtn');
+
+      const isCollapsed = container.classList.contains('max-h-40');
+
+      if (isCollapsed) {
+        // Expanding
+        container.classList.remove('max-h-40', 'overflow-hidden');
+        container.classList.add('max-h-[70vh]', 'overflow-y-auto');
+        if (text) text.textContent = 'Collapse Script';
+        if (icon) {
+          icon.style.transform = 'rotate(0deg)';
+          icon.querySelector('path').setAttribute('d', 'M5 15l7-7 7 7');
+        }
+        if (btn) btn.classList.replace('bg-sky-500', 'bg-emerald-600');
+      } else {
+        // Collapsing
+        container.classList.remove('max-h-[70vh]', 'max-h-none', 'overflow-y-auto');
+        container.classList.add('max-h-40', 'overflow-hidden');
+        if (text) text.textContent = 'Show Full Script';
+        if (icon) {
+          icon.style.transform = 'rotate(0deg)';
+          icon.querySelector('path').setAttribute('d', 'M19 9l-7 7-7-7');
+        }
+        if (btn) btn.classList.replace('bg-emerald-600', 'bg-sky-500');
+
+        // Scroll back to the top of the script area
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+
+    const TEMPLATE_DATA = {
+      industries: {
+        en: [
+          { id: 'retail', label: '🏪 Retail', icon: 'shopping_bag' },
+          { id: 'finance', label: '🏦 Finance', icon: 'account_balance' },
+          { id: 'manufacturing', label: '🏭 Manufacturing', icon: 'precision_manufacturing' },
+          { id: 'healthcare', label: '🏥 Healthcare', icon: 'medical_services' },
+          { id: 'logistics', label: '🚚 Logistics', icon: 'local_shipping' },
+          { id: 'tech', label: '💻 Tech & SaaS', icon: 'cloud_queue' },
+          { id: 'energy', label: '⚡ Energy & Utilities', icon: 'bolt' },
+          { id: 'telecom', label: '📞 Telecommunications', icon: 'settings_input_antenna' },
+          { id: 'media', label: '🎬 Media & Entertainment', icon: 'movie' },
+          { id: 'gov', label: '🏛️ Gov & Public Sector', icon: 'account_balance_wallet' },
+          { id: 'education', label: '🎓 Education', icon: 'school' },
+          { id: 'auto', label: '🚗 Automotive', icon: 'directions_car' }
+        ],
+        ja: [
+          { id: 'retail', label: '🏪 小売', icon: 'shopping_bag' },
+          { id: 'finance', label: '🏦 金融', icon: 'account_balance' },
+          { id: 'manufacturing', label: '🏭 製造', icon: 'precision_manufacturing' },
+          { id: 'healthcare', label: '🏥 ヘルスケア', icon: 'medical_services' },
+          { id: 'logistics', label: '🚚 物流', icon: 'local_shipping' },
+          { id: 'tech', label: '💻 IT・SaaS', icon: 'cloud_queue' },
+          { id: 'energy', label: '⚡ エネルギー・公益', icon: 'bolt' },
+          { id: 'telecom', label: '📞 通信・テレコム', icon: 'settings_input_antenna' },
+          { id: 'media', label: '🎬 メディア・娯楽', icon: 'movie' },
+          { id: 'gov', label: '🏛️ 公共政策', icon: 'account_balance_wallet' },
+          { id: 'education', label: '🎓 教育', icon: 'school' },
+          { id: 'auto', label: '🚗 自動車', icon: 'directions_car' }
+        ]
+      },
+      jobFunctions: {
+        en: [
+          { id: 'all', label: 'All Functions' },
+          { id: 'sales', label: 'Sales & Revenue' },
+          { id: 'marketing', label: 'Marketing' },
+          { id: 'ops', label: 'Operations' },
+          { id: 'it_eng', label: 'IT & Engineering' },
+          { id: 'rnd', label: 'R&D' },
+          { id: 'customer_service', label: 'Customer Service' },
+          { id: 'product_mgmt', label: 'Product Mgmt' },
+          { id: 'supply_chain', label: 'Supply Chain' },
+          { id: 'finance_dept', label: 'Finance' },
+          { id: 'legal', label: 'Legal & Compliance' },
+          { id: 'hr', label: 'HR & People' }
+        ],
+        ja: [
+          { id: 'all', label: 'すべて' },
+          { id: 'sales', label: '営業・収益' },
+          { id: 'marketing', label: 'マーケティング' },
+          { id: 'ops', label: 'オペレーション' },
+          { id: 'it_eng', label: 'IT・エンジニアリング' },
+          { id: 'rnd', label: '研究開発 (R&D)' },
+          { id: 'customer_service', label: 'カスタマーサービス' },
+          { id: 'product_mgmt', label: '製品管理' },
+          { id: 'supply_chain', label: 'サプライチェーン' },
+          { id: 'finance_dept', label: '財務・経理' },
+          { id: 'legal', label: '法務・コンプライアンス' },
+          { id: 'hr', label: '人事・採用' }
+        ]
+      },
+      templates: {
+        en: [
+          // Retail
+          { industry: 'retail', function: 'sales', label: "Manhattan Store Optimization", text: "Retail optimization for Manhattan stores by correlating foot traffic, sales, and local weather patterns to optimize staffing and inventory levels." },
+          { industry: 'retail', function: 'marketing', label: "Customer Loyalty Analysis", text: "Analyze customer purchase history and demographic data to identify high-value segments and design targeted loyalty campaigns for regional malls." },
+          { industry: 'retail', function: 'ops', label: "Shelf Availability Tracking", text: "Real-time shelf inventory monitoring using computer vision and IoT weight sensors to automate restock triggers and minimize lost sales." },
+          { industry: 'retail', function: 'supply_chain', label: "Fresh Food Inventory", text: "Optimize fresh food inventory in grocery stores by analyzing historical spoilage rates, peak shopping hours, and delivery schedules." },
+          { industry: 'retail', function: 'finance_dept', label: "Dynamic Pricing Analysis", text: "Competitor price monitoring and elastic demand modeling to automate real-time price adjustments for high-volume consumer electronics." },
+          { industry: 'retail', function: 'hr', label: "Staffing Demand Prediction", text: "Forecast seasonal staffing requirements by analyzing historical store traffic peaks, local holidays, and workforce availability data." },
+          { industry: 'retail', function: 'customer_service', label: "Omnichannel Support Agent", text: "Provide seamless customer support across web, mobile, and in-store channels by integrating real-time order tracking and inventory data with Gemini." },
+          // Finance
+          { industry: 'finance', function: 'sales', label: "Wealth Management Growth", text: "Identify cross-selling opportunities for premium wealth management services based on transaction patterns and market volatility sensitivity." },
+          { industry: 'finance', function: 'marketing', label: "Next Best Offer Engine", text: "Predicting the most relevant financial product for individual banking customers using behavioral data and spending life-cycle analysis." },
+          { industry: 'finance', function: 'ops', label: "Fraud Detection Patterns", text: "Analyze credit card transaction streams to identify emerging fraud patterns and optimize detection rules for high-risk regions." },
+          { industry: 'finance', function: 'supply_chain', label: "Cash Logistics Optimization", text: "Optimizing ATM cash replenishment schedules and secure transport routes based on historical withdrawal trends and operational costs." },
+          { industry: 'finance', function: 'finance_dept', label: "ALM Sensitivity Testing", text: "Asset-Liability Management (ALM) modeling to simulate balance sheet impact from interest rate shocks and liquidity stress scenarios." },
+          { industry: 'finance', function: 'hr', label: "Advisor Performance Metrics", text: "Analyze advisor-client engagement data and conversion rates to identify training gaps and optimize performance-based incentive structures." },
+          { industry: 'finance', function: 'legal', label: "Regulatory Compliance Monitor", text: "Automate the review of thousands of loan documents and transaction records to ensure compliance with evolving domestic and international banking regulations." },
+          // Manufacturing
+          { industry: 'manufacturing', function: 'sales', label: "B2B Demand Forecasting", text: "Aggregate dealer orders and market sentiment data to predict production demand and optimize regional inventory distribution." },
+          { industry: 'manufacturing', function: 'marketing', label: "Aftermarket Upsell Discovery", text: "Analyzing industrial equipment telemetry to identify machines reaching maintenance thresholds and promote relevant parts or service contracts." },
+          { industry: 'manufacturing', function: 'ops', label: "Factory Downtime Zero", text: "Factory downtime prediction and maintenance optimization based on machine sensor data and historical parts failure history." },
+          { industry: 'manufacturing', function: 'supply_chain', label: "Global Parts Logistics", text: "Optimize global component sourcing by analyzing shipping lead times, port congestion data, and regional supplier performance." },
+          { industry: 'manufacturing', function: 'finance_dept', label: "Unit Cost Variance Analysis", text: "Real-time production cost tracking by correlating raw material prices, energy usage, and labor efficiency across multiple assembly lines." },
+          { industry: 'manufacturing', function: 'hr', label: "Safety Hazard Prevention", text: "Analyze workplace accident reports and machine usage logs to identify patterns indicating fatigue or safety protocol breaches." },
+          { industry: 'manufacturing', function: 'rnd', label: "Sustainable Materials Discovery", text: "Accelerate the R&D cycle for lightweight, sustainable automotive materials by simulating chemical properties and performance characteristics using AI." },
+          // Healthcare
+          { industry: 'healthcare', function: 'sales', label: "Patient Service Growth", text: "Identify high-potential regions for specialized medical services by analyzing demographic health trends and competitor facility distribution." },
+          { industry: 'healthcare', function: 'marketing', label: "Preventive Care Engagement", text: "Segment patient populations by health risk factors to automate personalized outreach for annual screenings and preventive health programs." },
+          { industry: 'healthcare', function: 'ops', label: "ER Wait Time Management", text: "Predicting ER patient influx and optimizing nurse staffing based on historical admission data and regional flu trends." },
+          { industry: 'healthcare', function: 'supply_chain', label: "Medical Supply Tracking", text: "Optimize pharmaceutical inventory levels in hospital networks by analyzing usage spikes during historical seasonal peaks." },
+          { industry: 'healthcare', function: 'finance_dept', label: "Claims Denials Analytics", text: "Reduce insurance claim rejection rates by analyzing historical denial patterns and identifying common coding errors before submission." },
+          { industry: 'healthcare', function: 'hr', label: "Burnout Risk Assessment", text: "Monitor nurse shifts and overtime patterns to proactively identify departments at high risk of staff burnout and turnover." },
+          // Logistics
+          { industry: 'logistics', function: 'sales', label: "Freight Rate Optimization", text: "Dynamic shipping rate modeling based on capacity availability, seasonal peak demand, and fuel price volatility for enterprise accounts." },
+          { industry: 'logistics', function: 'marketing', label: "Customer Churn Mitigation", text: "Identifying at-risk freight customers by analyzing service level trends, delay frequency, and competitive price benchmarking." },
+          { industry: 'logistics', function: 'ops', label: "Last-Mile Efficiency", text: "Delivery route delay prediction and fuel efficiency optimization based on real-time traffic patterns and historical urban density data." },
+          { industry: 'logistics', function: 'supply_chain', label: "Multi-Modal Sourcing", text: "Identify the most cost-effective transportation mix (land, sea, air) by analyzing global port delays and varying lead times." },
+          { industry: 'logistics', function: 'finance_dept', label: "Asset Lifecycle Costing", text: "Predicting total cost of ownership for vehicle fleets by correlating maintenance logs, age, and mileage to optimize replacement cycles." },
+          { industry: 'logistics', function: 'hr', label: "Driver Safety Governance", text: "Analyzing telematics data for speed, braking, and idle time to design driver training programs and safety-based performance bonuses." },
+          { industry: 'logistics', function: 'product_mgmt', label: "Last-Mile Delivery Platform", text: "Define the roadmap for a next-gen delivery platform by analyzing driver feedback, route efficiency, and customer satisfaction scores to prioritize features." },
+          // Tech & SaaS
+          { industry: 'tech', function: 'sales', label: "SaaS Churn Prediction", text: "Global SaaS churn analysis and customer retention strategy using historical usage patterns, support ticket volume, and contract renewal dates." },
+          { industry: 'tech', function: 'marketing', label: "Growth Loop Analysis", text: "Analyzing user onboarding friction and feature adoption rates to optimize self-serve conversion funnels for a cloud-native platform." },
+          { industry: 'tech', function: 'ops', label: "Cloud Spend Governance", text: "Analyze cloud infrastructure utilization and billing anomalies to provide cost-optimization recommendations across different product teams." },
+          { industry: 'tech', function: 'supply_chain', label: "Hardware Sourcing Resilience", text: "Mitigating server component shortages by analyzing tier-2 supplier lead times and regional geopolitical risk factors for manufacturing centers." },
+          { industry: 'tech', function: 'finance_dept', label: "Rule of 40 Benchmark", text: "Correlating revenue growth and EBITDA margins across product lines to identify areas requiring strategic investment or cost reduction." },
+          { industry: 'tech', function: 'hr', label: "Skills Gap Inventory", text: "Analyzing internal project assignments and certification data to identify emerging tech skill gaps and plan targeted recruitment or training." },
+          { industry: 'tech', function: 'it_eng', label: "Cloud Infrastructure Scaling", text: "Predict cloud resource demand spikes and automate infrastructure scaling to ensure 99.99% uptime for global SaaS applications while optimizing cost." },
+          // Energy & Utilities
+          { industry: "energy", function: "sales", label: "Renewable Energy Sales Strategy", text: "Analyze regional energy consumption trends and government incentives to identify high-potential leads for commercial solar and wind installations." },
+          { industry: "energy", function: "marketing", label: "Energy Conservation Campaign", text: "Create personalized energy-saving recommendations for residential customers by analyzing smart meter data and historical peak usage patterns to reduce grid strain." },
+          { industry: "energy", function: "ops", label: "Predictive Grid Maintenance", text: "Minimize downtime by correlating sensor data from transformers and power lines with weather forecasts and historical failure reports to predict equipment maintenance needs." },
+          { industry: "energy", function: "it_eng", label: "Smart Grid Infrastructure Optimization", text: "Develop a data pipeline for real-time load balancing and anomaly detection across a decentralized network of DERs (Distributed Energy Resources) using Gemini." },
+          { industry: "energy", function: "product_mgmt", label: "Next-Gen Smart Home Planner", text: "Utilize consumer behavior data and device telemetry to design and prioritize features for a new energy-optimized smart home management application." },
+          { industry: "energy", function: "customer_service", label: "Utility Billing Support Bot", text: "Automated handling of complex billing inquiries and energy usage explanations by integrating customer account data with real-time tariff updates." },
+          // Telecommunications
+          { industry: "telecom", function: "sales", label: "5G Business Expansion", text: "Identify enterprise prospects for 5G private network deployments by analyzing industrial zone locations, current connectivity gaps, and IoT adoption rates." },
+          { industry: "telecom", function: "marketing", label: "Customer Churn Reduction", text: "Proactively offer personalized data plan upgrades and loyalty rewards by analyzing streaming usage, dropped call rates, and contract expiry dates." },
+          { industry: "telecom", function: "ops", label: "Network Traffic Management", text: "Dynamically allocate network bandwidth and optimize cell tower handovers by predicting traffic spikes during major public events or commute hours." },
+          { industry: "telecom", function: "it_eng", label: "Edge Computing Orchestration", text: "Design and implement an AI-powered orchestration layer for deploying low-latency applications at the network edge based on real-time resource availability." },
+          { industry: "telecom", function: "product_mgmt", label: "Connectivity Bundle Roadmap", text: "Define and prioritize new features for multi-device connectivity bundles by analyzing user behavior across mobile, broadband, and streaming services." },
+          { industry: "telecom", function: "customer_service", label: "Technical Support Assistant", text: "Instant troubleshooting for network issues and device setup queries using a knowledge base of technical manuals and real-time network diagnostic data." },
+          // Media & Entertainment
+          { industry: "media", function: "sales", label: "Ad Inventory Yield Optimization", text: "Maximize advertising revenue by predicting viewer demographics and engagement levels for upcoming live sports and entertainment broadcasts." },
+          { industry: "media", function: "marketing", label: "Content Personalization Engine", text: "Boost viewer retention and subscription renewals by generating hyper-personalized content recommendations and trailers based on viewing history and genre preferences." },
+          { industry: "media", function: "ops", label: "Digital Assets Management", text: "Automate the tagging, categorization, and copyright checking of massive video libraries using multimodal Gemini analysis to streamline post-production workflows." },
+          { industry: "media", function: "it_eng", label: "Real-time Streaming Analytics", text: "Build a scalable analytics platform to monitor stream quality and viewer engagement metrics globally, enabling real-time CDN switching and bit-rate adjustments." },
+          { industry: "media", function: "product_mgmt", label: "Interactive OTT Feature Design", text: "Analyze user interaction data from streaming apps to design and prioritize social viewing and gamified features for the next OTT platform update." },
+          { industry: "media", function: "customer_service", label: "Viewer Engagement Chatbot", text: "Enhance viewer experience with a conversational AI that answers questions about show plots, actor biographies, and subscription plan details." },
+          // Government & Public Sector
+          { industry: "gov", function: "sales", label: "Public Service Awareness Hub", text: "Increase adoption of green energy grants and social programs by analyzing demographic data and tailoring outreach communications to underserved populations." },
+          { industry: "gov", function: "marketing", label: "Public Health Awareness", text: "Design and track the effectiveness of public health campaigns by analyzing social media sentiment and healthcare provider feedback during seasonal outbreaks." },
+          { industry: "gov", function: "ops", label: "Urban Infrastructure Planning", text: "Optimize public transit routes and garbage collection schedules by analyzing city-wide traffic patterns, population density, and citizen feedback." },
+          { industry: "gov", function: "it_eng", label: "Cyber Threat Intel Platform", text: "Implement an AI-driven security operations center to detect and respond to sophisticated cyber threats against critical public infrastructure and citizen data." },
+          { industry: "gov", function: "product_mgmt", label: "Digital Citizen Service Portal", text: "Re-imagine the citizen experience for municipal services by analyzing help desk tickets and user journey maps to prioritize digital transformation projects." },
+          { industry: "gov", function: "customer_service", label: "Multi-lingual Citizen Assistant", text: "Provide real-time assistance for government services, permit applications, and emergency info in multiple languages to all residents." },
+          // Education
+          { industry: "education", function: "sales", label: "Enrollment Strategy & Growth", text: "Predict student enrollment trends and optimize recruitment efforts for higher education by analyzing demographic shifts and career market demands." },
+          { industry: "education", function: "marketing", label: "Personalized Alumni Engagement", text: "Increase donation rates and alumni participation by tailoring fundraising campaigns based on alumni career achievements and historical involvement." },
+          { industry: "education", function: "ops", label: "Campus Resource Optimization", text: "Improve campus efficiency by predicting peak facility usage (libraries, dining halls, labs) and optimizing staffing and energy consumption accordingly." },
+          { industry: "education", function: "it_eng", label: "Adaptive Learning Platform", text: "Architect a scalable backend for a personalized learning platform that adapts content difficulty and format in real-time based on student performance data." },
+          { industry: "education", function: "product_mgmt", label: "Curriculum Innovation Lab", text: "Use job market data and industry trend analysis to design and prioritize new vocational and certificate programs that meet future workforce needs." },
+          { industry: "education", function: "customer_service", label: "Student Support Navigator", text: "Assist students with academic advising, financial aid questions, and campus life inquiries using a comprehensive knowledge base of university policies." },
+          // Automotive
+          { industry: "auto", function: "sales", label: "Dealership Network Optimization", text: "Boost sales by optimizing vehicle inventory distribution across dealerships based on regional buyer preferences, economic indicators, and seasonal trends." },
+          { industry: "auto", function: "marketing", label: "Connected Car Upsell", text: "Launch targeted marketing campaigns for premium software features and connected services by analyzing driver behavior and vehicle performance data." },
+          { industry: "auto", function: "ops", label: "Supply Chain Resiliency", text: "Minimize production delays by predicting potential supply chain disruptions and automatically identifying alternative suppliers for critical vehicle components." },
+          { industry: "auto", function: "it_eng", label: "Autonomous Vehicle Simulation", text: "Manage and analyze petabytes of sensor data from test fleets to train and validate autonomous driving models in a high-fidelity simulation environment." },
+          { industry: "auto", function: "product_mgmt", label: "EV Charging Experience", text: "Design and prioritize features for an integrated electric vehicle charging and route planning application based on user feedback and charging station data." },
+          { industry: "auto", function: "customer_service", label: "Smart Vehicle Troubleshooting", text: "Provide real-time vehicle diagnostics and service scheduling assistance to drivers via a voice-activated or mobile app AI assistant." }
+        ],
+        ja: [
+          // 小売
+          { industry: 'retail', function: 'sales', label: "都内店舗の売上最適化", text: "東京都内の小売店売上分析と、気象データを組み合わせた在庫最適化および需要予測デモ。" },
+          { industry: 'retail', function: 'marketing', label: "会員ランク移行分析", text: "顧客の購買履歴とデモグラフィックデータを分析し、高価値顧客セグメントの特定とパーソナライズされた施策の立案。" },
+          { industry: 'retail', function: 'ops', label: "棚割り・欠品防止", text: "コンピュータビジョンと重量センサーを用いた棚在庫のリアルタイム監視。自動補充トリガーにより、販売機会損失を最小化。" },
+          { industry: 'retail', function: 'supply_chain', label: "食品ロス削減", text: "消費期限、過去の廃棄率、および来店客数予測に基づいた、スーパーマーケットでの生鮮食品在庫管理の最適化。" },
+          { industry: 'retail', function: 'finance_dept', label: "ダイナミック・プライシング", text: "競合価格のモニタリングと需要弾力性モデルに基づく。家電量販店向けに、売れ筋商品の適正価格をリアルタイムで自動更新。" },
+          { industry: 'retail', function: 'hr', label: "シフト配置の最適化", text: "過去の来店客数ピーク、祝祭日、スタッフの稼働データを分析。過不足のない人員配置を予測し、人件費を効率化。" },
+          { industry: 'retail', function: 'customer_service', label: "オムニチャネル・サポート", text: "Web、モバイル、店頭を跨いでシームレスな顧客サポートを実現。Geminiが注文履歴やリアルタイムの在庫データと連携して、一貫した対応を提供。" },
+          // 金融
+          { industry: 'finance', function: 'sales', label: "富裕層向け提案の強化", text: "取引パターンと市場動向への感応度に基づいた、ウェルスマネジメントサービスのクロスセル機会の特定。" },
+          { industry: 'finance', function: 'marketing', label: "ネクスト・ベスト・オファー", text: "行動データとライフステージ分析を用いた、パーソナライズされた金融商品提案。既存顧客のエンゲージメントを最大化。" },
+          { industry: 'finance', function: 'ops', label: "不正利用検知", text: "クレジットカード取引ストリームの分析。新たに出現した不正パターンを特定し、高リスク地域での検知ルールを最適化。" },
+          { industry: 'finance', function: 'supply_chain', label: "現金輸送ルートの最適化", text: "ATMの現金補充スケジュールと輸送ルートの改善。過去の引き出し傾向と運用コストに基づき、資金効率を向上。" },
+          { industry: 'finance', function: 'finance_dept', label: "ALM感応度テスト", text: "資産負債管理（ALM）モデル。金利ショックや流動性ストレスシナリオがバランスシートに与える影響をシミュレーション。" },
+          { industry: 'finance', function: 'hr', label: "アドバイザー実績分析", text: "顧客対応データと成約率の相関分析。教育が必要なスキルの特定と、成果に基づくインセンティブ設計の最適化。" },
+          { industry: 'finance', function: 'legal', label: "規制コンプライアンス監視", text: "膨大なローン書類や取引記録のレビューを自動化。国内外で変化する金融規制への準拠を継続的に監視し、法的リスクを低減。" },
+          // 製造
+          { industry: 'manufacturing', function: 'sales', label: "B2B需要予測", text: "販売代理店の発注動向と市場センチメントを統合。生産計画を最適化し、地域ごとの在庫の過不足を解消。" },
+          { industry: 'manufacturing', function: 'marketing', label: "保守サービスの提案強化", text: "産業機器のIoTテレメトリデータを分析。交換時期が近づいた部品やメンテナンス契約の提案を自動化。" },
+          { industry: 'manufacturing', function: 'ops', label: "工場稼働率の最大化", text: "製造ラインの停止予測。センサーデータと過去の故障履歴に基づいた予防保守のタイミングの最適化。" },
+          { industry: 'manufacturing', function: 'supply_chain', label: "部品調達の弾力化", text: "配送リードタイム、港湾の混雑状況、およびサプライヤーのパフォーマンス分析によるグローバル調達の最適化。" },
+          { industry: 'manufacturing', function: 'finance_dept', label: "原価差異のリアルタイム分析", text: "原材料価格、エネルギー使用量、労働効率の変動を監視。製品ごとの原価推移を可視化し、採算管理を高度化。" },
+          { industry: 'manufacturing', function: 'hr', label: "安全管理と事故防止", text: "労働災害報告と機器の使用ログを分析。疲労やプロトコル違反の兆候を特定し、現場の安全レベルを向上。" },
+          { industry: 'manufacturing', function: 'rnd', label: "持続可能素材の探索", text: "軽量かつ持続可能な次世代素材の研究開発において、AIが化学特性や性能をシミュレーション。R&Dサイクルを大幅に短縮。" },
+          // ヘルスケア
+          { industry: 'healthcare', function: 'sales', label: "診療サービスの地域展開", text: "地域の健康トレンドと競合施設の分布を分析。特化型クリニックや専門サービスの需要が高いエリアを特定。" },
+          { industry: 'healthcare', function: 'marketing', label: "予防検診の受診促進", text: "健康リスク要因に基づいた患者のセグメンテーション。パーソナライズされた通知により、定期検診の受診率を向上。" },
+          { industry: 'healthcare', function: 'ops', label: "救急外来の混雑予測", text: "ER（救急外来）への患者流入予測。過去の診察データと季節性疾患のトレンドに基づいた看護師配置の最適化。" },
+          { industry: 'healthcare', function: 'supply_chain', label: "医薬品在庫の適正化", text: "病院ネットワーク内での医薬品在庫レベル。過去の季節的ピーク時の需要急増に基づいた発注タイミングの最適化。" },
+          { industry: 'healthcare', function: 'finance_dept', label: "レセプト査定対策", text: "診療報酬請求の返戻・査定パターンの分析。請求前のコーディングミスを特定し、キャッシュフローを改善。" },
+          { industry: 'healthcare', function: 'hr', label: "バーンアウト防止プログラム", text: "看護師のシフトと残業時間の傾向を監視。離職リスクの高い部署を特定し、メンタルヘルス対策を早期に実施。" },
+          // 物流
+          { industry: 'logistics', function: 'sales', label: "運賃見積のダイナミック化", text: "空き容量、季節的な需要ピーク、燃料価格の変動に基づく価格モデル。大口顧客向けの運賃提案を最適化。" },
+          { industry: 'logistics', function: 'marketing', label: "顧客離反の防止", text: "配送遅延の頻度やサービスレベルの低下を分析。解約リスクの高い荷主を特定し、競合他社への流出を阻止。" },
+          { industry: 'logistics', function: 'ops', label: "ラストワンマイルの効率化", text: "配送ルートの遅延予測。リアルタイムの交通渋渋滞パターンと都市部の配送密度に基づいた燃料効率の最大化。" },
+          { industry: 'logistics', function: 'supply_chain', label: "マルチモーダル調達", text: "陸・海・空の最適な輸送モードの選定。港湾の混雑状況とリードタイムを分析し、最もコスト効率の高い経路を特定。" },
+          { industry: 'logistics', function: 'finance_dept', label: "車両ライフサイクル管理", text: "保有車両の維持コスト予測。走行距離や修理履歴に基づき、最適な買い替えサイクルを算出して資産効率を向上。" },
+          { industry: 'logistics', function: 'hr', label: "ドライバー安全走行支援", text: "急ブレーキや速度超過などのテレマティクスデータ分析。安全スコアに基づく報酬制度の設計と事故率の低減。" },
+          { industry: 'logistics', function: 'product_mgmt', label: "ラストワンマイル配送プラットフォーム", text: "ドライバーのフィードバック、配送ルートの効率、顧客満足度スコアを分析。次世代配送プラットフォームのロードマップと優先機能を決定。" },
+          // IT・SaaS
+          { industry: 'tech', function: 'sales', label: "SaaS解約予測", text: "グローバルSaaS製品の解約分析。利用パターン、サポートチケット数、契約更新日に基づいたリテンション戦略の策定。" },
+          { industry: 'tech', function: 'marketing', label: "プロダクト・レッド・グロース", text: "オンボーディング時のユーザー行動と機能採用率を分析し、セルフサーブ型コンバージョンの最適化を図る。" },
+          { industry: 'tech', function: 'ops', label: "クラウドコスト管理", text: "インフラ利用状況と請求データの異常検知。各開発チームへのコスト最適化推奨事項の自動生成。" },
+          { industry: 'tech', function: 'supply_chain', label: "サーバー部品の調達リスク", text: "サプライヤーのリードタイムと地政学的リスクを分析。重要なサーバーコンポーネントの在庫確保と代替調達先を管理。" },
+          { industry: 'tech', function: 'finance_dept', label: "効率性ベンチマーク", text: "製品ラインごとの収益成長率と利益率の相関分析。投資すべき成長分野と、コスト削減が必要な非効率な事業を特定。" },
+          { industry: 'tech', function: 'hr', label: "ITスキルマップの可視化", text: "社内プロジェクトのアサインデータと保有資格を統合。不足している技術領域を特定し、戦略的な採用やリスキリングを計画。" },
+          { industry: 'tech', function: 'it_eng', label: "クラウド基盤のスケーリング", text: "クラウドのリソース需要を予測し、インフラのスケーリングを自動化。コストを最適化しながら、グローバルSaaSアプリケーションの可用性を維持。" },
+          // エネルギー・公益
+          { industry: "energy", function: "sales", label: "再生可能エネルギーの販売戦略", text: "地域のエネルギー消費トレンドと政府の補助金制度を分析。商用太陽光・風力発電の導入見込みが高い顧客を特定し、営業活動を効率化。" },
+          { industry: "energy", function: "marketing", label: "節電・省エネキャンペーン", text: "スマートメーターのデータと過去のピーク時の使用パターンを分析。一般世帯向けにパーソナライズされた節電推奨事項を作成し、グリッドの負荷を軽減。" },
+          { industry: "energy", function: "ops", label: "送電網の予測保全", text: "変圧器や送電線のセンサーデータ、気象予測、過去の故障レポートを統合。設備のメンテナンス時期を予測し、ダウンタイムを最小限に抑制。" },
+          { industry: "energy", function: "it_eng", label: "スマートグリッド基盤の最適化", text: "Geminiを活用し、分散型エネルギーリソース（DER）のネットワーク全体で、リアルタイムの負荷分散と異常検知を行うデータパイプラインを構築。" },
+          { industry: "energy", function: "product_mgmt", label: "次世代スマートホーム計画", text: "消費者の行動データとデバイスのテレメトリを活用。エネルギー消費を最適化する新しいスマートホーム管理アプリの機能を設計し、優先順位を決定。" },
+          { industry: "energy", function: "customer_service", label: "公共料金サポートAI", text: "顧客の口座データとリアルタイムの料金体系を統合。複雑な請求に関する問い合わせや、エネルギー使用量の解説を自動で行うカスタマーサポート。" },
+          // 通信・テレコム
+          { industry: "telecom", function: "sales", label: "5G法人向け展開", text: "工業地帯のロケーション、現在の接続状況、IoT導入率を分析。5Gプライベートネットワークの導入候補となる企業を特定し、アウトリーチを強化。" },
+          { industry: "telecom", function: "marketing", label: "解約率（チャーン）の低減", text: "ストリーミング利用量、通話の切断率、契約更新日などを分析。解約の兆候を捉え、最適なデータプランのアップグレードや特典をタイムリーに提案。" },
+          { industry: "telecom", function: "ops", label: "ネットワークトラフィック管理", text: "大規模イベントや通勤時間帯のトラフィック急増を予測。ネットワーク帯域を動的に割り当て、基地局のハンドオーバーを最適化して通信品質を維持。" },
+          { industry: "telecom", function: "it_eng", label: "エッジコンピューティングの統合制御", text: "リソースの可用性に基づき、低遅延アプリケーションをネットワークのエッジにデプロイ。AI駆動のオーケストレーション層を設計・実装。" },
+          { industry: "telecom", function: "product_mgmt", label: "接続プラン・バンドルのロードマップ", text: "モバイル、ブロードバンド、ストリーミングサービスを跨ぐユーザー行動を分析。マルチデバイス接続プランの構成を定義し、新機能を優先順位付け。" },
+          { industry: "telecom", function: "customer_service", label: "テクニカルサポート・アシスタント", text: "技術マニュアルのナレッジベースとリアルタイムのネットワーク診断データを活用。ネットワーク障害やデバイス設定に関するトラブルシューティングを即座に提供。" },
+          // メディア・娯楽
+          { industry: "media", function: "sales", label: "広告枠収益の最適化", text: "スポーツ中継やエンターテインメント番組の視聴者層とエンゲージメントを予測。広告在庫の価値を最大化し、収益を向上させるプライシング戦略。" },
+          { industry: "media", function: "marketing", label: "コンテンツ・パーソナライズ", text: "視聴履歴や嗜好を分析。一人ひとりに合わせたコンテンツの推奨や予告編の自動生成により、視聴維持率とサブスクリプション継続率を向上。" },
+          { industry: "media", function: "ops", label: "デジタルアセットの自動管理", text: "Geminiのマルチモーダル分析を活用し、膨大なビデオライブラリのタグ付け、分類、著作権チェックを自動化。ポストプロダクション業務を効率化。" },
+          { industry: "media", function: "it_eng", label: "ストリーミングのリアルタイム分析", text: "配信品質とエンゲージメントをグローバルに監視。視聴状況に応じたCDNの切り替えやビットレートの調整をリアルタイムで行うプラットフォームを構築。" },
+          { industry: "media", function: "product_mgmt", label: "インタラクティブOTT機能の設計", text: "ストリーミングアプリのインタラクションデータを分析。ソーシャル視聴やゲーミフィケーション要素など、次世代OTTプラットフォームの新機能を企画。" },
+          { industry: "media", function: "customer_service", label: "視聴者エンゲージメント・チャットボット", text: "番組のあらすじ、出演者の経歴、プラン内容に関する質問に回答。会話型AIにより視聴者体験を向上させ、ファンコミュニティを活性化。" },
+          // 公共政策
+          { industry: "gov", function: "sales", label: "公共サービス周知ハブ", text: "人口統計データを分析し、再生可能エネルギー助成金や社会保障プログラムの対象者に情報を最適化。行政サービスの利用率向上を図るデモ。" },
+          { industry: "gov", function: "marketing", label: "公衆衛生の啓発活動", text: "SNSのセンチメントや医療機関からのフィードバックを分析。季節性の感染症対策など、公衆衛生キャンペーンの効果を測定し、情報発信を改善。" },
+          { industry: "gov", function: "ops", label: "都市インフラ計画の最適化", text: "交通パターン、人口密度、市民のフィードバックを分析。公共交通機関のルートやゴミ収集スケジュールを最適化し、都市運営の効率を向上。" },
+          { industry: "gov", function: "it_eng", label: "サイバー脅威インテリジェンス", text: "重要インフラや住民データに対する高度なサイバー攻撃を検知・遮断。AIを活用したセキュリティ・オペレーション・センター（SOC）を構築。" },
+          { industry: "gov", function: "product_mgmt", label: "電子行政サービスポータル", text: "ヘルプデスクへの問い合わせやカスタマージャーニーを分析。住民の利便性を高めるデジタル変革プロジェクトの優先順位を決定。" },
+          { industry: "gov", function: "customer_service", label: "多言語対応・住民サポート", text: "行政手続き、許可申請、緊急情報などを多言語で案内。AIアシスタントが住民の多様なニーズにリアルタイムで対応し、窓口業務を効率化。" },
+          // 教育
+          { industry: "education", function: "sales", label: "入学者数の動向予測", text: "人口動態の変化と労働市場の需要を分析。高等教育機関における入学希望者のトレンドを予測し、効果的な学生募集戦略を策定。" },
+          { industry: "education", function: "marketing", label: "卒業生エンゲージメントの強化", text: "卒業生のキャリア実績や過去の参加履歴に基づき、寄付キャンペーンをパーソナライズ。大学コミュニティへの帰属意識を高め、支援を拡大。" },
+          { industry: "education", function: "ops", label: "キャンパスリソースの最適化", text: "図書館、食堂、研究室の混雑状況を予測。スタッフ配置とエネルギー消費を最適化し、キャンパス運営の効率性と学生の利便性を両立。" },
+          { industry: "education", function: "it_eng", label: "アダプティブ・ラーニング基盤", text: "学習者の習熟度データに基づいて、教材の難易度や形式をリアルタイムで変更。個々の進捗に合わせたパーソナライズ学習を実現するバックエンドを構築。" },
+          { industry: "education", function: "product_mgmt", label: "教育カリキュラム・イノベーション", text: "労働市場のデータと産業トレンドを分析。将来のスキル需要に応える職業訓練プログラムや修了証コースを企画・設計。" },
+          { industry: "education", function: "customer_service", label: "学生生活サポート・ナビゲーター", text: "履修登録、奨学金、キャンパスライフに関する相談に、大学のポリシーに基づいた正確な回答を提供。学生の不安を解消し、学習に集中できる環境を支援。" },
+          // 自動車
+          { industry: "auto", function: "sales", label: "販売代理店の在庫最適化", text: "地域の購買傾向、経済指標、季節要因を分析。ディーラーネットワーク全体で車両在庫の配置を最適化し、販売機会の損失を防ぎつつ回転率を向上。" },
+          { industry: "auto", function: "marketing", label: "コネクテッドカーのアップセル", text: "運転行動や車両パフォーマンスのデータを分析。プレミアムソフトウェア機能やコネクテッドサービスの販促キャンペーンを、最適なタイミングで配信。" },
+          { industry: "auto", function: "ops", label: "サプライチェーンの回復力", text: "部品の供給網における混乱リスクを予測。代替サプライヤーを自動的に特定し、車両生産の遅延を最小限に抑えるレジリエンス戦略。" },
+          { industry: "auto", function: "it_eng", label: "自動運転シミュレーション", text: "テスト車両からの膨大なセンサーデータを収集・分析。高精度なシミュレーション環境で自動運転モデルのトレーニングと検証を効率化。" },
+          { industry: "auto", function: "product_mgmt", label: "EV充電体験の向上", text: "ユーザーフィードバックと充電スタンドの稼働データを分析。電気自動車の充電スポット検索とルート案内を統合したアプリの機能を定義。" },
+          { industry: "auto", function: "customer_service", label: "車両診断・サポートAI", text: "音声操作やモバイルアプリを通じて、リアルタイムの車両診断と点検予約を支援。故障を未然に防ぎ、快適なドライブ体験を提供。" }
+        ]
+      }
+    };
+
+    let selectedIndustry = 'retail';
+    let selectedFunction = 'all';
+
+    function updateSamples() {
+      const langSelector = document.getElementById('langSelector');
+      const lang = (langSelector && langSelector.value) || 'en';
+      const industryContainer = document.getElementById('industryFilters');
+      const functionContainer = document.getElementById('jobFunctionFilters');
+      const templateGrid = document.getElementById('templateGrid');
+
+      if (!industryContainer || !functionContainer || !templateGrid) return;
+
+      // 1. Render Industries
+      industryContainer.innerHTML = '';
+      const fallbackLang = TEMPLATE_DATA.industries[lang] ? lang : 'en';
+      TEMPLATE_DATA.industries[fallbackLang].forEach(ind => {
+        const btn = document.createElement('button');
+        btn.onclick = () => { selectedIndustry = ind.id; updateSamples(); };
+        const isActive = selectedIndustry === ind.id;
+        btn.className = `px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${isActive
+          ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-lg shadow-sky-500/20'
+          : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
+          }`;
+        btn.innerText = ind.label;
+        industryContainer.appendChild(btn);
+      });
+
+      // 2. Render Job Functions
+      functionContainer.innerHTML = '';
+      const fallbackFuncLang = TEMPLATE_DATA.jobFunctions[lang] ? lang : 'en';
+      TEMPLATE_DATA.jobFunctions[fallbackFuncLang].forEach(func => {
+        const btn = document.createElement('button');
+        btn.onclick = () => { selectedFunction = func.id; updateSamples(); };
+        const isActive = selectedFunction === func.id;
+        btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-medium transition-all border ${isActive
+          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+          : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'
+          }`;
+        btn.innerText = func.label;
+        functionContainer.appendChild(btn);
+      });
+
+      // 3. Render Template Grid
+      templateGrid.innerHTML = '';
+      const fallbackTempLang = TEMPLATE_DATA.templates[lang] ? lang : 'en';
+      const filtered = TEMPLATE_DATA.templates[fallbackTempLang].filter(t =>
+        (t.industry === selectedIndustry) &&
+        (selectedFunction === 'all' || t.function === selectedFunction)
+      );
+
+      if (filtered.length === 0) {
+        templateGrid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-500 text-[10px] italic">No matching templates found for this combination. Try another job function.</div>`;
+        return;
+      }
+
+      filtered.forEach(temp => {
+        const card = document.createElement('div');
+        card.onclick = () => setIdea(temp.text);
+        card.className = "group glass p-4 rounded-2xl border border-white/5 hover:border-sky-500/50 cursor-pointer transition-all hover:bg-sky-500/5 flex flex-col justify-between shadow-sm hover:shadow-sky-500/10";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-[8px] font-bold text-gray-500 uppercase tracking-tighter bg-white/5 px-1.5 py-0.5 rounded border border-white/10">${temp.function}</span>
+            </div>
+            <h4 class="text-[11px] font-bold text-gray-200 group-hover:text-white mb-2 leading-tight">${temp.label}</h4>
+            <p class="text-[10px] text-gray-500 group-hover:text-gray-400 line-clamp-3 leading-relaxed">${temp.text}</p>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <span class="text-[9px] font-bold text-sky-400 opacity-0 group-hover:opacity-100 transition-all uppercase tracking-widest flex items-center gap-1">
+              Select
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </span>
+          </div>
+        `;
+        templateGrid.appendChild(card);
+      });
+    }
+
+    function setIdea(text) {
+      const el = document.getElementById('userGoal');
+      el.value = text;
+      el.classList.add('highlight-glow');
+
+      // Transition to manual entry so user can edit
+      const template = document.getElementById('templateContainer');
+      const manual = document.getElementById('manualContainer');
+
+      template.classList.add('opacity-0', 'translate-y-4');
+      setTimeout(() => {
+        template.classList.add('hidden');
+        manual.classList.remove('hidden');
+        setTimeout(() => {
+          manual.classList.remove('opacity-0', 'translate-y-4');
+          manual.classList.add('opacity-100', 'translate-y-0');
+          el.focus();
+        }, 50);
+      }, 300);
+
+      // Visual feedback
+      const btn = document.getElementById('generateBtn');
+      if (btn) btn.classList.add('animate-pulse');
+      setTimeout(() => {
+        el.classList.remove('highlight-glow');
+        if (btn) btn.classList.remove('animate-pulse');
+      }, 2000);
+
+      showToast('Template applied!');
+    }
+    function generateDemo() {
+      const userGoal = document.getElementById('userGoal').value;
+      if (!userGoal) return alert('Goal required.');
+      const options = {
+        rowCount: document.getElementById('rowCount').value,
+        tableCount: document.getElementById('tableCount').value,
+        publicDatasetId: document.getElementById('publicDatasetId').value,
+        usePublicDataset: document.getElementById('usePublicDataset').checked
+      };
+
+      const stepsSection = document.getElementById('stepsSection');
+      stepsSection.classList.remove('hidden');
+
+      // Auto-scroll to progress section
+      setTimeout(() => stepsSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.add('hidden');
+      document.getElementById('section-step4').classList.add('hidden');
+      document.getElementById('section-step5').classList.add('hidden');
+
+      // Reset progress UI
+      const s1 = document.getElementById('progress-step-1');
+      const s2 = document.getElementById('progress-step-2');
+      s1.className = 'flex items-center gap-4 transition-all duration-300';
+      s2.className = 'flex items-center gap-4 transition-all duration-300';
+      s1.querySelector('.step-icon').className = 'step-icon w-6 h-6 rounded bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold animate-pulse';
+      s1.querySelector('.step-message').innerText = 'Synthesizing...';
+      s2.querySelector('.step-message').innerText = 'Waiting...';
+
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('btnSpinner').classList.remove('hidden');
+      document.getElementById('btnText').innerText = 'SYNTHESIZING...';
+
+      // Start dynamic logs
+      GenerationLogger.start();
+
+      // Simulate step 2 animation with more realistic timing
+      isCancelled = false;
+      step2Timer = setTimeout(() => {
+        if (isCancelled) return;
+        s1.classList.add('step-completed');
+        s1.querySelector('.step-message').innerText = 'Logic synthesis successful';
+        s2.querySelector('.step-icon').className = 'step-icon w-6 h-6 rounded bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold animate-pulse';
+        s2.querySelector('.step-message').innerText = 'Bundling assets... (this may take a minute)';
+      }, 25000); // More realistic ~25s timing
+
+      google.script.run
+        .withSuccessHandler(res => {
+          if (isCancelled) return;
+          GenerationLogger.stop();
+          document.getElementById('generateBtn').disabled = false;
+          document.getElementById('btnSpinner').classList.add('hidden');
+          document.getElementById('btnText').innerText = 'Generate Setup Script & Assets';
+
+          if (!res.success) return onFailure(res.error);
+
+          // Complete animation
+          s2.classList.add('step-completed');
+          s2.querySelector('.step-message').innerText = 'Bundle ready';
+
+          setTimeout(() => {
+            if (isCancelled) return;
+            stepsSection.classList.add('hidden');
+            currentData = res;
+            try {
+              showFinalResult(res);
+            } catch (uiErr) {
+              console.error('UI Rendering Error:', uiErr);
+            }
+
+
+          }, 800);
+        })
+        .withFailureHandler(err => {
+          if (isCancelled) return;
+          onFailure(err);
+        })
+        .generateDemo(userGoal, options);
+    }
+
+    function onFailure(err) {
+      GenerationLogger.stop();
+      document.getElementById('generateBtn').disabled = false;
+      document.getElementById('btnSpinner').classList.add('hidden');
+      document.getElementById('stepsSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.remove('hidden');
+      document.getElementById('btnText').innerText = 'Generate Setup Script & Assets';
+      document.getElementById('errorMessage').innerText = err;
+    }
+
+    function showFinalResult(res) {
+      document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('section-step4').classList.remove('hidden');
+      document.getElementById('section-step5').classList.remove('hidden');
+      const scriptFilename = `setup-${res.dirName || 'demo'}.sh`;
+      document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > ${scriptFilename}\n${res.setupScript}\n__SETUP_SH__\nbash ${scriptFilename}`;
+      currentSetupScript = res.setupScript;
+      currentScriptFilename = scriptFilename;
+      document.getElementById('step5SetupCommandBlock').innerText = `cd ~ && bash ${scriptFilename}`;
+      document.getElementById('systemInstruction').value = res.systemInstruction;
+
+      if (res.userGoal) {
+        const userGoalEl = document.getElementById('userGoal');
+        userGoalEl.value = res.userGoal;
+        localStorage.setItem('ge_generator_input', res.userGoal);
+
+        // Ensure manual container is visible so the scenario can be seen
+        const template = document.getElementById('templateContainer');
+        const manual = document.getElementById('manualContainer');
+        const selection = document.getElementById('methodSelection');
+
+        selection.classList.add('hidden');
+        template.classList.add('hidden');
+        manual.classList.remove('hidden');
+        manual.classList.add('opacity-100', 'translate-y-0');
+      }
+
+      const adkDirPlaceholder = document.getElementById('adkDirPlaceholder');
+      if (adkDirPlaceholder) adkDirPlaceholder.innerText = res.dirName || 'demo-directory';
+
+      const adkDirPlaceholder2 = document.getElementById('adkDirPlaceholder2');
+      if (adkDirPlaceholder2) adkDirPlaceholder2.innerText = res.dirName || 'demo-directory';
+
+
+      const projectIdInput = document.getElementById('projectIdInput');
+      if (projectIdInput) {
+        projectIdInput.value = ''; // Clear to show placeholder as example
+        updateProjectSetCmd();
+      }
+
+      const cdCommandBlockStep4 = document.getElementById('cdCommandBlockStep4');
+      if (cdCommandBlockStep4) cdCommandBlockStep4.innerText = `cd ~/${res.dirName}/adk_agent`;
+
+
+      currentSuffix = res.suffix || '';
+      currentDomainName = res.domainName || '';
+
+      // Guide
+      const guideContainer = document.getElementById('demoGuideSteps');
+      guideContainer.innerHTML = '';
+      if (res.demoGuide && res.demoGuide.length) {
+        res.demoGuide.forEach((step, i) => {
+          const title = step.title || `Scenario ${i + 1}`;
+          const prompt = step.prompt || step;
+
+          const div = document.createElement('div');
+          div.className = "flex flex-col gap-3 p-5 rounded-2xl bg-black/40 border border-white/5 group hover:border-emerald-500/30 transition-all shadow-xl";
+          div.innerHTML = `
+               <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 w-6 h-6 rounded-lg flex items-center justify-center shadow-inner tracking-tighter">${i + 1}</span>
+                    <p class="text-[11px] font-bold text-gray-300 uppercase tracking-widest">${title}</p>
+                  </div>
+                  <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                    <span class="relative flex h-1.5 w-1.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-[9px] font-bold text-emerald-500/80 uppercase tracking-tighter">Recommended</span>
+                  </div>
+               </div>
+                <div class="relative bg-black/60 rounded-xl p-4 border border-white/5 group-hover:border-emerald-500/20 transition-all min-w-0">
+                  <p class="text-[13px] text-sky-200 select-all leading-relaxed font-mono">${prompt}</p>
+                  <button onclick="copyToClipboard(this.previousElementSibling.innerText)" class="absolute top-2 right-2 p-2 rounded-lg bg-white/5 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Copy prompt">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                  </button>
+               </div>
+            `;
+          guideContainer.appendChild(div);
+        });
+      }
+
+      // Data DNA Badges (Realistic Synthesis Factors)
+      const dataDnaBadges = document.getElementById('dataDnaBadges');
+      const dataDnaBadgesContainer = document.getElementById('dataDnaBadgesContainer');
+      if (res.appliedFactors && dataDnaBadges && dataDnaBadgesContainer) {
+        dataDnaBadgesContainer.innerHTML = '';
+        const badgeStyles = {
+          temporalpatterns: { bg: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30', icon: '📅' },
+          correlations: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', icon: '🔗' },
+          businesslogic: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', icon: '⚙️' }
+        };
+        let hasBadges = false;
+        for (let [category, items] of Object.entries(res.appliedFactors)) {
+          if (!items) continue;
+          // Normalize category key for more robust matching
+          const normalizedCat = category.toLowerCase().replace(/[\s_-]/g, '');
+          const style = badgeStyles[normalizedCat] || { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', icon: '💡' };
+
+          const itemList = Array.isArray(items) ? items : [items];
+          itemList.forEach(item => {
+            if (!item) return;
+            const badge = document.createElement('span');
+            badge.className = `text-[9px] ${style.bg} ${style.text} border ${style.border} px-2 py-1 rounded-full font-medium flex items-center gap-1 transition-all hover:scale-105`;
+            badge.innerHTML = `<span>${style.icon}</span><span>${item}</span>`;
+            dataDnaBadgesContainer.appendChild(badge);
+            hasBadges = true;
+          });
+        }
+        dataDnaBadges.classList.toggle('hidden', !hasBadges);
+      }
+      else {
+        dataDnaBadges.classList.add('hidden');
+      }
+
+      // Sparkline SVG generator
+      const renderSparkline = (values, width = 60, height = 16) => {
+        if (!values || values.length < 2) return '';
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = max - min || 1;
+        const points = values.map((v, i) => {
+          const x = (i / (values.length - 1)) * width;
+          const y = height - ((v - min) / range) * height;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        return `<svg class="inline-block ml-2 opacity-60" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${points}"/></svg>`;
+      };
+
+      // Preview
+      const getColumnTypeIcon = (value) => {
+        if (!value) return '';
+        const valStr = String(value);
+        if (/^\d{4}-\d{2}-\d{2}/.test(valStr)) return '<svg class="w-3 h-3 text-sky-400/50 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+        if (!isNaN(parseFloat(valStr)) && isFinite(valStr)) return '<svg class="w-3 h-3 text-emerald-400/50 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>';
+        if (valStr.length > 20 && /[a-z0-9-]{8,}/i.test(valStr)) return '<svg class="w-3 h-3 text-purple-400/50 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>';
+        return '<svg class="w-3 h-3 text-gray-500/50 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>';
+      };
+
+      const container = document.getElementById('dataPreview');
+      container.innerHTML = '';
+      res.dataPreview.forEach(table => {
+        const div = document.createElement('div');
+        div.className = 'glass rounded-xl overflow-hidden border border-white/5 shadow-2xl mb-8 bg-black/20 group hover:border-sky-500/30 transition-all';
+
+        // Header with summary info
+        const rowsCount = table.rows.length;
+        const totalRows = table.totalRows;
+        const density = Math.round((rowsCount / totalRows) * 100) || 100;
+
+        let html = `
+          <div class="bg-white/5 px-4 py-3 flex items-center justify-between border-b border-white/5">
+            <div class="flex items-center gap-3">
+              <span class="text-[10px] font-bold text-sky-400 uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10">${table.tableName}</span>
+              <div class="flex gap-2">
+                <span class="text-[8px] text-gray-500 bg-black/40 px-1.5 py-0.5 rounded border border-white/5">${table.headers.length} COLUMNS</span>
+                <span class="text-[8px] text-gray-500 bg-black/40 px-1.5 py-0.5 rounded border border-white/5">${totalRows} TOTAL ROWS</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+               <div class="flex items-center gap-2">
+                 <div class="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                   <div class="h-full bg-sky-500/50" style="width: ${density}%"></div>
+                 </div>
+                 <span class="text-[8px] text-gray-600 font-mono italic">Sample ${density}%</span>
+               </div>
+            </div>
+          </div>`;
+
+        html += `
+          <div class="overflow-x-auto custom-scrollbar">
+            <div class="max-h-[220px] overflow-y-auto custom-scrollbar-y">
+              <table class="w-full text-[10px] text-left">
+                <thead class="bg-black/40 text-gray-500 uppercase tracking-tighter sticky top-0 z-10 backdrop-blur-md">
+                  <tr>`;
+
+        table.headers.forEach(h => {
+          const firstVal = table.rows[0] ? table.rows[0][h] : '';
+          const icon = getColumnTypeIcon(firstVal);
+
+          // Check if column is numeric and generate sparkline
+          const columnValues = table.rows.map(row => parseFloat(row[h])).filter(v => !isNaN(v));
+          const isNumericColumn = columnValues.length >= 2 && columnValues.length === table.rows.length;
+          const sparkline = isNumericColumn ? renderSparkline(columnValues) : '';
+
+          html += `<th class="px-4 py-3 font-bold border-r border-white/5 last:border-0 truncate min-w-[120px]">
+            <div class="flex items-center gap-1">
+              ${icon}
+              <span>${h}</span>
+              ${sparkline}
+            </div>
+          </th>`;
+        });
+
+
+        html += `</tr></thead><tbody class="divide-y divide-white/5 font-mono">`;
+        table.rows.forEach(row => {
+          html += `<tr class="hover:bg-sky-500/5 transition-colors group/row">`;
+          table.headers.forEach(h => {
+            const val = row[h];
+            const isDate = /^\d{4}-\d{2}-\d{2}/.test(val);
+            const isNum = !isNaN(parseFloat(val)) && isFinite(val);
+            const cellClass = isNum ? 'text-emerald-400/80' : (isDate ? 'text-sky-300/80' : 'text-gray-400');
+            html += `<td class="px-4 py-2.5 border-r border-white/5 last:border-0 ${cellClass} truncate max-w-[200px]" title="${val}">${val}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+        div.innerHTML = html;
+        container.appendChild(div);
+      });
+      document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Render ER Diagram
+      renderERDiagram(res.dataPreview);
+
+      // HYBRID CACHE: Save to local storage for instant recall
+    }
+
+    function renderERDiagram(tables) {
+      if (!tables || tables.length === 0) return;
+
+      const erSection = document.getElementById('erDiagramSection');
+      if (erSection) {
+        erSection.classList.remove('hidden');
+        erSection.classList.add('fade-in');
+      }
+
+      const container = document.getElementById('erDiagramContainer');
+
+      const nodes = [];
+      const edges = [];
+
+      // Pre-identify Primary Keys for each table
+      const tablePKs = {};
+      tables.forEach(table => {
+        const tableNameLower = table.tableName.toLowerCase();
+        // Heuristic: xxx_id is PK if table name contains xxx
+        const pk = table.headers.find(h => {
+          const hLower = h.toLowerCase();
+          if (!hLower.endsWith('_id')) return false;
+          const entity = hLower.replace('_id', '');
+          return tableNameLower.includes(entity) || (entity === 'product' && tableNameLower.includes('item'));
+        });
+        tablePKs[table.tableName] = pk;
+      });
+
+      // Create Nodes (Tables)
+      tables.forEach((table) => {
+        const tableId = table.tableName;
+        const pk = tablePKs[tableId];
+
+        let label = `<b>${table.tableName.toUpperCase()}</b>\n`;
+        label += `<i>────────────────</i>\n`;
+
+        table.headers.forEach(h => {
+          const isPK = h === pk;
+          const isFK = h.toLowerCase().endsWith('_id') && !isPK;
+          let prefix = '  ';
+          if (isPK) prefix = '🔑 ';
+          else if (isFK) prefix = '🔗 ';
+
+          label += `${prefix}${h}\n`;
+        });
+
+        nodes.push({
+          id: tableId,
+          label: label,
+          shape: 'box',
+          font: {
+            multi: 'html',
+            color: '#f1f5f9',
+            size: 10,
+            face: 'Inter, sans-serif',
+            align: 'left',
+            bold: { color: '#0ea5e9', size: 12, fontFace: 'Inter, sans-serif' },
+            ital: { color: 'rgba(14, 165, 233, 0.2)', size: 8 }
+          },
+          color: {
+            background: 'rgba(15, 23, 42, 0.9)',
+            border: 'rgba(14, 165, 233, 0.5)',
+            highlight: {
+              background: 'rgba(14, 165, 233, 0.2)',
+              border: '#0ea5e9'
+            },
+            hover: {
+              background: 'rgba(14, 165, 233, 0.15)',
+              border: 'rgba(14, 165, 233, 0.8)'
+            }
+          },
+          borderWidth: 2,
+          shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 10, x: 0, y: 4 },
+          margin: 12
+        });
+      });
+
+      // Create Edges (Relationships)
+      tables.forEach(table => {
+        table.headers.forEach(h => {
+          const hLower = h.toLowerCase();
+          if (hLower.endsWith('_id')) {
+            // Find ALL target tables that have a matching column name
+            const matchingTables = tables.filter(t => {
+              if (t.tableName === table.tableName) return false;
+              // Link if the target table has a column with the EXACT SAME name
+              return t.headers.includes(h);
+            });
+
+            matchingTables.forEach(targetTable => {
+              // Avoid duplicate edges between the same two tables for the same field
+              // Note: We don't check direction here because arrows indicate the relationship flow
+              // but we want to avoid drawing two lines for the exact same field between two tables
+              const edgeExists = edges.find(e =>
+                (e.from === table.tableName && e.to === targetTable.tableName && e.label.trim() === h) ||
+                (e.from === targetTable.tableName && e.to === table.tableName && e.label.trim() === h)
+              );
+
+              if (!edgeExists) {
+                // Determine direction: From FK to PK if possible
+                const isFromPK = tablePKs[table.tableName] === h;
+                const isToPK = tablePKs[targetTable.tableName] === h;
+
+                let from = table.tableName;
+                let to = targetTable.tableName;
+
+                // If the target has the PK and the source doesn't, point to the target
+                // If both have it (e.g. 1:1 or shared ID), keep default alphabetical or creation order
+                // to maintain consistency
+                if (isToPK && !isFromPK) {
+                  from = table.tableName;
+                  to = targetTable.tableName;
+                } else if (isFromPK && !isToPK) {
+                  from = targetTable.tableName;
+                  to = table.tableName;
+                }
+
+                edges.push({
+                  from: from,
+                  to: to,
+                  label: `  ${h}  `,
+                  font: {
+                    size: 9,
+                    color: '#94a3b8',
+                    face: 'monospace',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    strokeWidth: 0,
+                    align: 'top'
+                  },
+                  arrows: {
+                    to: { enabled: true, scaleFactor: 0.8, type: 'arrow' }
+                  },
+                  color: {
+                    color: 'rgba(14, 165, 233, 0.4)',
+                    highlight: 'rgba(14, 165, 233, 0.8)',
+                    hover: 'rgba(14, 165, 233, 0.6)'
+                  },
+                  width: 1.5,
+                  selectionWidth: 3,
+                  smooth: {
+                    type: 'cubicBezier',
+                    forceDirection: 'horizontal',
+                    roundness: 0.6
+                  }
+                });
+              }
+            });
+          }
+        });
+      });
+
+      const data = {
+        nodes: new vis.DataSet(nodes),
+        edges: new vis.DataSet(edges)
+      };
+
+      const options = {
+        nodes: {
+          shapeProperties: {
+            borderRadius: 10
+          }
+        },
+        physics: {
+          enabled: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: {
+            gravitationalConstant: -180,
+            centralGravity: 0.005,
+            springLength: 200,
+            springConstant: 0.12,
+            damping: 0.4,
+            avoidOverlap: 1
+          },
+          stabilization: {
+            iterations: 150,
+            updateInterval: 25
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 200,
+          zoomView: false,
+          navigationButtons: false,
+          multiselect: false
+        }
+      };
+
+      const network = new vis.Network(container, data, options);
+
+      // Prevent duplicate Zoom Controls
+      let controlsDiv = document.getElementById('erDiagramControls');
+      if (controlsDiv) {
+        controlsDiv.remove();
+      }
+
+      controlsDiv = document.createElement('div');
+      controlsDiv.id = 'erDiagramControls';
+      controlsDiv.className = 'absolute bottom-4 right-4 flex flex-col gap-2 z-10';
+      controlsDiv.innerHTML = `
+        <button id="zoomIn" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/80 border border-white/10 text-slate-400 hover:text-sky-400 hover:border-sky-500/50 transition-all shadow-lg backdrop-blur-sm" title="Zoom In">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        </button>
+        <button id="zoomOut" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/80 border border-white/10 text-slate-400 hover:text-sky-400 hover:border-sky-500/50 transition-all shadow-lg backdrop-blur-sm" title="Zoom Out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+        </button>
+        <button id="zoomReset" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/80 border border-white/10 text-slate-400 hover:text-sky-400 hover:border-sky-500/50 transition-all shadow-lg backdrop-blur-sm" title="Reset View">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>
+      `;
+      container.parentElement.appendChild(controlsDiv);
+
+      // Zoom Button Events
+      document.getElementById('zoomIn').onclick = () => network.moveTo({ scale: network.getScale() * 1.2 });
+      document.getElementById('zoomOut').onclick = () => network.moveTo({ scale: network.getScale() / 1.2 });
+      document.getElementById('zoomReset').onclick = () => network.fit({ animation: true });
+
+      network.on("stabilizationIterationsDone", function () {
+        network.setOptions({ physics: { enabled: false } });
+        // Tighter initial fit: use smaller padding
+        network.fit({
+          animation: { duration: 1000, easingFunction: 'easeInOutQuad' }
+        });
+      });
+
+      // Initial fit after a delay with tighter padding
+      setTimeout(() => {
+        network.fit({ padding: 30 });
+      }, 500);
+
+      // Consolidated Unified Click-to-Zoom logic to prevent jerky overlapping animations
+      network.on("click", function (params) {
+        if (params.nodes.length > 0) {
+          // Focus on clicked node
+          network.focus(params.nodes[0], {
+            scale: 1.1,
+            animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+          });
+        } else {
+          // Reset view when clicking background
+          network.fit({
+            animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+          });
+        }
+      });
+    }
+
+    function updateProjectSetCmd() {
+      const input = document.getElementById('projectIdInput');
+      const display = document.getElementById('projectSetCmdDisplay');
+      const geLink = document.getElementById('geminiEnterpriseLink');
+
+      if (input) {
+        const val = input.value.trim();
+        const displayVal = val || '[PROJECT_ID]';
+
+        if (display) display.innerText = `gcloud config set project ${displayVal} && cd ~`;
+
+        if (geLink) {
+          const baseUrl = 'https://console.cloud.google.com/gemini-enterprise/apps';
+          geLink.href = val ? `${baseUrl}?project=${val}` : baseUrl;
+        }
+      }
+    }
+
+    function copyProjectCmd() {
+      const input = document.getElementById('projectIdInput');
+      const val = input ? input.value.trim() : '';
+      if (!val) return showToast('Please enter a Project ID first.', 4000);
+      copyToClipboard(`gcloud config set project ${val} && cd ~`);
+    }
+
+    function updateScriptLocally() {
+      const instr = document.getElementById('systemInstruction').value;
+      google.script.run
+        .withSuccessHandler(newScript => {
+          currentData.setupScript = newScript;
+          document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > ${currentScriptFilename}\n${newScript}\n__SETUP_SH__\nbash ${currentScriptFilename}`;
+
+          document.getElementById('step5SetupCommandBlock').innerText = `cd ~ && bash ${currentScriptFilename}`;
+        })
+        .updateSystemInstruction(currentData.setupScript, instr);
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    function downloadScript() { if (currentData) downloadFile(currentData.setupScript, 'setup.sh', 'text/x-shellscript'); }
+    function downloadAllCSV() { if (currentData && currentData.rawTables) currentData.rawTables.forEach(t => downloadFile(t.csvData, `${t.tableName}.csv`, 'text/csv')); }
+
+    /**
+     * Unified clipboard utility
+     * Uses async navigator.clipboard API with a fallback for older environments
+     */
+    function copyToClipboard(textOrId) {
+      let text = textOrId;
+      // If an element ID was passed, get its appropriate content
+      const el = document.getElementById(textOrId);
+      if (el) {
+        text = el.innerText || el.textContent || el.value || '';
+      }
+
+      const performCopy = (txt) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = txt;
+        textarea.style.position = 'fixed'; // Avoid scrolling
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          showToast('Copied to clipboard!');
+        } catch (err) {
+          console.error('Copy fallback failed', err);
+        }
+        document.body.removeChild(textarea);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast('Copied to clipboard!'))
+          .catch(() => performCopy(text));
+      } else {
+        performCopy(text);
+      }
+    }
+
+
+
+
+
+    window.onload = () => {
+      console.log('App initialization...');
+
+      // Restore auto-saved input
+      const savedInput = localStorage.getItem('ge_generator_input');
+      if (savedInput) document.getElementById('userGoal').value = savedInput;
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+
+
+        // Run diagnostics
+        google.script.run.withSuccessHandler(resRaw => {
+          const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
+          const diag = document.getElementById('ss-diag');
+          if (diag && res && res.success) {
+            diag.classList.remove('bg-gray-600', 'bg-red-500');
+            diag.classList.add('bg-emerald-500');
+            diag.title = `Ready (Local Persistence)`;
+          } else {
+            diag.classList.add('bg-red-500');
+            diag.title = `Sync Error: ${res ? res.error : 'Unknown error'}`;
+          }
+        }).checkSpreadsheet();
+      }
+      updateSamples();
+      updateProjectSetCmd();
+
+      // Onboarding check
+      if (!localStorage.getItem('onboarding_seen')) {
+        const onboardingModal = document.getElementById('onboardingModal');
+        if (onboardingModal) onboardingModal.classList.add('show');
+      }
+
+      // Scroll Spy Implementation
+      const sections = document.querySelectorAll('section[id], div[id^="section-"]');
+      const navItems = document.querySelectorAll('.nav-item');
+
+      const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.3
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            navItems.forEach(item => {
+              item.classList.remove('active');
+              if (item.getAttribute('data-section') === entry.target.id) {
+                item.classList.add('active');
+              }
+            });
+          }
+        });
+      }, observerOptions);
+
+      sections.forEach(section => observer.observe(section));
+
+      initArchZoom();
+    };
+
+    let zoomScale = 1;
+    let zoomPos = { x: 0, y: 0 };
+    function initArchZoom() {
+      const container = document.querySelector('.zoom-container');
+      const content = document.getElementById('archZoomContent');
+      if (!container || !content) {
+        console.warn('Arch zoom elements not found, skipping initialization.');
+        return;
+      }
+      let isDragging = false;
+      let startPos = { x: 0, y: 0 };
+
+      container.onmousedown = (e) => {
+        isDragging = true;
+        startPos = { x: e.clientX - zoomPos.x, y: e.clientY - zoomPos.y };
+        container.style.cursor = 'grabbing';
+      };
+
+      window.onmousemove = (e) => {
+        if (!isDragging) return;
+        zoomPos.x = e.clientX - startPos.x;
+        zoomPos.y = e.clientY - startPos.y;
+        updateZoomTransform();
+      };
+
+      window.onmouseup = () => {
+        isDragging = false;
+        if (container) container.style.cursor = 'grab';
+      };
+
+      container.onwheel = (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        changeZoom(delta);
+      };
+    }
+
+    function changeZoom(delta) {
+      zoomScale = Math.min(Math.max(0.5, zoomScale + delta), 3);
+      updateZoomTransform();
+    }
+
+    function resetZoom() {
+      zoomScale = 1;
+      zoomPos = { x: 0, y: 0 };
+      updateZoomTransform();
+    }
+
+    function updateZoomTransform() {
+      const content = document.getElementById('archZoomContent');
+      if (!content) return;
+      content.style.transform = `translate(${zoomPos.x}px, ${zoomPos.y}px) scale(${zoomScale})`;
+    }
+
+    function togglePublicDatasetOverride() {
+      const isChecked = document.getElementById('usePublicDataset').checked;
+      const container = document.getElementById('publicOverrideContainer');
+      const input = document.getElementById('publicDatasetId');
+
+      if (isChecked) {
+        container.classList.remove('opacity-50', 'pointer-events-none');
+        input.disabled = false;
+      } else {
+        container.classList.add('opacity-50', 'pointer-events-none');
+        input.disabled = true;
+        input.value = ''; // Optional: clear if disabled
+      }
+    }
+  </script>
+
+  <div id="onboardingModal">
+    <div class="glass max-w-lg w-full rounded-3xl p-8 border border-white/10 shadow-2xl">
+      <div class="text-center mb-8">
+        <div
+          class="w-16 h-16 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-sky-500/20">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-2">Welcome! Let's build your AI Demo.</h2>
+        <p class="text-gray-400 text-sm">Create hyper-personalized agent demos in minutes.</p>
+      </div>
+
+      <div class="space-y-6 mb-10">
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-sky-500/10 flex items-center justify-center text-xs font-bold text-sky-400 border border-sky-500/20">
+            🚀</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">What is this?</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">A toolkit to <b>synthesize realistic business datasets</b>
+              and <b>agent instructions</b>, offering customization of sample data on top of the <a
+                href="https://github.com/google/mcp/tree/main/examples/launchmybakery" target="_blank"
+                class="text-sky-400 hover:underline font-bold">LaunchMyBakery</a> demo application. The demo agent
+              generates
+              <b>dynamic responses</b> using <b>BigQuery</b> and <b>Google Maps</b> via Google-hosted <b>MCP
+                servers</b>.
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-xs font-bold text-emerald-400 border border-emerald-500/20">
+            ⚡</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">The Benefit</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">Skip the data prep. Generate a complete, grounded demo
+              environment tailored to any industry challenge or customer pitch instantly.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400 border border-amber-500/20">
+            🛡️</div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-200 mb-1">How it works</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">This app <b>only generates a script</b>. To deploy, you'll
+              copy the script and run it in <b>your own Google Cloud Shell</b>. Your data stay in your project.</p>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeOnboarding()"
+        class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-sky-500/20 active:scale-[0.98]">
+        START BUILDING
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function openOnboarding() {
+      document.getElementById('onboardingModal').classList.add('show');
+    }
+
+    function closeOnboarding() {
+      document.getElementById('onboardingModal').classList.remove('show');
+      localStorage.setItem('onboarding_seen', 'true');
+    }
+  </script>
+  <!-- Update Log Modal -->
+  <div id="updateLogModal"
+    class="fixed inset-0 z-[250] hidden items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glass w-full max-w-md rounded-3xl overflow-hidden border border-white/10 shadow-2xl fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="font-bold text-white text-sm uppercase tracking-tight">Recent Updates</h3>
+        </div>
+        <button onclick="closeUpdateLog()" class="p-2 hover:bg-white/5 rounded-xl transition-colors">
+          <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 max-h-[400px] overflow-y-auto space-y-6">
+        <div id="updateLogList" class="space-y-6">
+          <!-- Updates will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const updateLog = JSON.parse('<?= updateLog ?>');
+
+    function openUpdateLog() {
+      const list = document.getElementById('updateLogList');
+      list.innerHTML = updateLog.map(item => {
+        const isCommitHash = /^[a-f0-9]{7}$/.test(item.version);
+        const versionDisplay = isCommitHash ?
+          `<a href="https://github.com/ryotat7/ge-demo-generator/commit/${item.version}" target="_blank" class="hover:text-white hover:underline transition-all underline-offset-4 decoration-sky-500/50">${item.version}</a>` :
+          item.version;
+
+        return `
+          <div class="relative pl-6 pb-6 border-l border-white/5 last:border-0 last:pb-0">
+            <div class="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-bold text-sky-400 font-mono">${versionDisplay}</span>
+              <span class="text-[9px] text-gray-500 uppercase tracking-widest font-medium">${item.date}</span>
+            </div>
+            <p class="text-[12px] text-gray-300 leading-relaxed">${item.note}</p>
+          </div>
+        `;
+      }).join('');
+
+      const modal = document.getElementById('updateLogModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeUpdateLog() {
+      const modal = document.getElementById('updateLogModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Close on escape
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeUpdateLog();
+    });
+
+    // Close on click outside
+    document.getElementById('updateLogModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('updateLogModal')) closeUpdateLog();
+    });
+  </script>
+</body>
+
+</html>

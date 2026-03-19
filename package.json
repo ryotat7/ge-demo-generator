@@ -1,0 +1,14 @@
+{
+  "name": "ge-demo-generator",
+  "version": "5.0",
+  "description": "Portabel AI Agent Demo Generator using BigQuery and Maps MCP",
+  "scripts": {
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "open": "clasp open",
+    "deploy": "clasp deploy"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}

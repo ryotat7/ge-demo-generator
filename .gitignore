@@ -1,0 +1,11 @@
+node_modules/
+.clasp.json
+.clasp-*.json
+.DS_Store
+*.sh
+*.csv
+.env
+.venv/
+__pycache__/
+demo-*/
+adk_agent/
