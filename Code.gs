@@ -69,7 +69,7 @@ const CONFIG = {
   GITHUB_TOKEN: SCRIPT_PROPS.getProperty('GITHUB_TOKEN'),
   MAX_RETRIES: 3,
   RETRY_DELAY_MS: 1000,
-  APP_VERSION: 'v10.100-public',
+  APP_VERSION: 'v10.103-public',
   LOG_SHEET_URL: SCRIPT_PROPS.getProperty('LOG_SHEET_URL')
 };
 
@@ -3604,10 +3604,10 @@ echo ""
       "people.googleapis.com"
     );
   }
-  if (enableWorkspaceMcp || (params.importedMcpList && params.importedMcpList.length > 0)) {
-    apisToEnable.push("secretmanager.googleapis.com");
-  }
-  // Secret Manager for Slack MCP token (already enabled above if importedMcpList exists)
+  // Secret Manager: always required. The Maps API key is stored as a secret for
+  // every demo (plus any MCP/Slack/OAuth secrets). Must be enabled in this early
+  // batch because the Maps key secret is created well before the deploy block.
+  apisToEnable.push("secretmanager.googleapis.com");
   let apisChunks = [];
   for (let i = 0; i < apisToEnable.length; i += 20) {
     apisChunks.push(apisToEnable.slice(i, i + 20));
@@ -3880,6 +3880,7 @@ fi
     echo "  • Firestore Collection: ${fsCollection}"
     echo "  • Gemini Enterprise registration (App): ${dirName}"
     echo "  • Custom MCP Secrets in Secret Manager (if exist)"
+    echo "  • Maps API Key Secret: ${dirName}-maps-key"
     echo "  • Agent Engine (Sandbox): ${dirName}-sandbox"
     echo "  • Pub/Sub Topics: ${dirName}-sched-tasks, ${dirName}-task-results"
     echo "  • Pub/Sub Subscriptions: ${dirName}-sched-tasks-push, ${dirName}-task-results-push"
@@ -4554,6 +4555,18 @@ fi
 if [ -z "$API_KEY" ]; then
     echo "⚠️ Failed to auto-generate API key. Set it manually in .env."
     API_KEY="REPLACE_ME"
+fi
+
+# --- Store Maps API key in Secret Manager for Cloud Run (--update-secrets) ---
+# The deployed service reads MAPS_API_KEY from this secret instead of a plaintext
+# --set-env-vars value, so the key is not exposed in the service config. The local
+# .env keeps the plaintext value (local runs read os.getenv directly). Named with
+# the demo dirName so the --cleanup suffix grep removes it automatically.
+echo "🔐 Storing Maps API key in Secret Manager: ${dirName}-maps-key..."
+if gcloud secrets describe ${dirName}-maps-key >/dev/null 2>&1; then
+    echo -n "$API_KEY" | gcloud secrets versions add ${dirName}-maps-key --data-file=-
+else
+    echo -n "$API_KEY" | gcloud secrets create ${dirName}-maps-key --data-file=- --replication-policy="automatic"
 fi
 
 # --- Sandbox Provisioning for Code Execution ---
@@ -11343,9 +11356,10 @@ def _scope_suggestions_surface(msg):
 #     N, deleteSurface turn N+1) keeps working even after a rename, and a
 #     patch-only turn that intentionally updates an old card still can.
 #   - 'suggestions*' ids are skipped (already per-turn scoped above).
-# State is in-memory per session (same minScale=1 scope as the Y1/G1/H1
-# caches); the rename is idempotent because already-renamed ids are first
-# normalized back to their logical id.
+# State is in-memory per session (same instance-lifetime scope as the Y1/G1/H1
+# caches; min-instances=0 means it is best-effort and lost if the service
+# scales to zero after idle); the rename is idempotent because already-renamed
+# ids are first normalized back to their logical id.
 _current_surface_guard = contextvars.ContextVar('surface_guard', default=None)
 _session_surface_registry = {}
 
@@ -11969,8 +11983,9 @@ def _heal_session_events(session, force_aggressive=False):
 # invocations per session_id with an asyncio.Lock so a later request WAITS for
 # the in-flight one to finish (and runs on the healed session) instead of
 # racing it. Single event loop -> the dict access needs no extra locking.
-# Demo services run minScale=1 / concurrency>1, so same-session requests land
-# on the same instance, making an in-process lock sufficient.
+# Demo services run min-instances=0 / concurrency>1: while warm, same-session
+# requests land on the same instance, making an in-process lock sufficient; an
+# idle service may scale to zero (cold start), which is acceptable here.
 # =============================================================================
 _session_locks = {}
 def _get_session_lock(_sid):
@@ -15079,7 +15094,6 @@ gcloud services enable secretmanager.googleapis.com
     let envVars = [
       "GOOGLE_CLOUD_PROJECT=\$PROJECT_ID",
       "GOOGLE_CLOUD_LOCATION=global",
-      "MAPS_API_KEY=\$API_KEY",
       "GEMINI_AUTHORIZATION_ID=\$AUTH_ID",
       "ADK_ENABLE_MCP_GRACEFUL_ERROR_HANDLING=1",
       "ADK_DISABLE_JSON_SCHEMA_FOR_FUNC_DECL=1",
@@ -15087,7 +15101,11 @@ gcloud services enable secretmanager.googleapis.com
     ];
     let secrets = [];
     let optionalSecrets = [];
-    
+
+    // Maps API key: bound from Secret Manager (provisioned during setup) instead
+    // of a plaintext --set-env-vars value, so it is not exposed in the service config.
+    secrets.push(`MAPS_API_KEY=${dirName}-maps-key:latest`);
+
     if (params.enableWorkspaceMcp) {
       secrets.push(`OAUTH_CLIENT_ID=ge-demo-oauth-client-id:latest`);
       secrets.push(`OAUTH_CLIENT_SECRET=ge-demo-oauth-client-secret:latest`);
@@ -15163,7 +15181,7 @@ gcloud services enable secretmanager.googleapis.com
     --cpu 2 \
     --no-cpu-throttling \
     --cpu-boost \
-    --min-instances 1 \
+    --min-instances 0 \
     --timeout 1800 \
     --no-allow-unauthenticated \
     --ingress internal \
@@ -15179,7 +15197,7 @@ gcloud services enable secretmanager.googleapis.com
     --cpu 2 \
     --no-cpu-throttling \
     --cpu-boost \
-    --min-instances 1 \
+    --min-instances 0 \
     --timeout 1800 \
     --no-allow-unauthenticated \
     --ingress internal \
