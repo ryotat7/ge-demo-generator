@@ -1926,6 +1926,19 @@
                   </div>
                 </div>
               </div>
+
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-widest">Computer Use (Browser Agent)</label>
+                <div class="flex items-center gap-3">
+                  <label class="flex items-center gap-2 cursor-pointer group shrink-0">
+                    <div class="relative">
+                      <input id="enableComputerUse" type="checkbox" class="sr-only peer">
+                      <div class="w-8 h-4 bg-gray-700 rounded-full peer peer-checked:bg-sky-500 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </div>
+                  </label>
+                  <p class="text-[10px] text-gray-500 leading-snug flex-1">Let the agent operate a real Chromium browser (Gemini 3.5 Flash Computer Use) to run no-API websites. Watchable via a live-view link + in-chat screenshots.</p>
+                </div>
+              </div>
             </div>
         </section>
 
@@ -2365,6 +2378,30 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Optional: Agent Display Name -->
+                  <div class="space-y-3 lg:col-span-2 pt-2 border-t border-white/5">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                      </div>
+                      <p class="text-[13px] text-gray-300 font-medium">3. Agent Display Name <span class="text-gray-500 font-normal">(Optional)</span></p>
+                    </div>
+
+                    <p class="text-[11px] text-gray-500 leading-relaxed">
+                      This is how the agent appears in Gemini Enterprise. You can rename the human-readable part; the demo identifier in parentheses is kept fixed so <code class="text-gray-400">--cleanup</code> can remove this demo's resources reliably.
+                    </p>
+
+                    <div class="flex items-stretch gap-2">
+                      <input type="text" id="agentDisplayNameInput" oninput="updateAgentDisplayName()"
+                        placeholder="Agent"
+                        class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-mono text-purple-300 focus:outline-none focus:border-purple-500/50 transition-all placeholder-gray-600">
+                      <span id="agentIdSuffix"
+                        class="flex items-center px-3 rounded-xl bg-black/30 border border-white/5 text-[10px] font-mono text-gray-500 whitespace-nowrap"></span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2579,6 +2616,7 @@
 
     let currentSuffix = '';
     let currentSetupScript = '';
+    let currentAgentDisplayName = ''; // user override for the human-readable agent name (empty = use script default)
     let currentScriptFilename = 'setup.sh';
 
     // ===========================================
@@ -4023,7 +4061,8 @@
         publicDatasetId: document.getElementById('publicDatasetId').value,
         usePublicDataset: document.getElementById('usePublicDataset').checked,
         importedMcpList: cachedImportedMcpList.length > 0 ? cachedImportedMcpList : null,
-        enableWorkspaceMcp: window.workspaceMcpIncluded || false
+        enableWorkspaceMcp: window.workspaceMcpIncluded || false,
+        enableComputerUse: document.getElementById('enableComputerUse') ? document.getElementById('enableComputerUse').checked : false
       };
 
       generationRetryCount = 0; // Reset retry count for a fresh generation
@@ -4132,9 +4171,16 @@
       document.getElementById('resultSection').classList.remove('hidden');
       document.getElementById('section-step4').classList.remove('hidden');
       const scriptFilename = `setup-${res.dirName || 'demo'}.sh`;
-      document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > ${scriptFilename}\n${res.setupScript}\n__SETUP_SH__\nbash ${scriptFilename}`;
       currentSetupScript = res.setupScript;
       currentScriptFilename = scriptFilename;
+      currentAgentDisplayName = '';
+      // Prefill the optional "Agent Display Name" field with the generated default,
+      // and show the fixed demo identifier that stays appended for cleanup.
+      const agentNameInput = document.getElementById('agentDisplayNameInput');
+      if (agentNameInput) agentNameInput.value = res.agentShortName || '';
+      const agentIdSuffix = document.getElementById('agentIdSuffix');
+      if (agentIdSuffix) agentIdSuffix.textContent = `(${res.dirName || 'demo'})`;
+      renderSetupCommand();
       document.getElementById('systemInstruction').value = res.businessInstruction || res.systemInstruction || '';
 
       if (res.userGoal) {
@@ -4962,9 +5008,35 @@
       google.script.run
         .withSuccessHandler(newScript => {
           currentData.setupScript = newScript;
-          document.getElementById('setupCommand').innerText = `cat <<'__SETUP_SH__' > ${currentScriptFilename}\n${newScript}\n__SETUP_SH__\nbash ${currentScriptFilename}`;
+          currentSetupScript = newScript;
+          renderSetupCommand();
         })
         .updateSystemInstruction(currentData.setupScript, businessInstr, technicalInstr);
+    }
+
+    // Apply the optional agent-name override onto the generated script by rewriting
+    // the single marked "AGENT_DISPLAY_NAME=..." line. The "(demo-xxx)" suffix is
+    // added at registration time and is never touched, so --cleanup keeps working.
+    function applyAgentDisplayName(script) {
+      if (!currentAgentDisplayName) return script;
+      const esc = String(currentAgentDisplayName).replace(/'/g, "'\\''");
+      return script.replace(
+        /^AGENT_DISPLAY_NAME=.*# ge:agent-display-name$/m,
+        `AGENT_DISPLAY_NAME='${esc}' # ge:agent-display-name`
+      );
+    }
+
+    function renderSetupCommand() {
+      const el = document.getElementById('setupCommand');
+      if (!el) return;
+      const script = applyAgentDisplayName(currentSetupScript);
+      el.innerText = `cat <<'__SETUP_SH__' > ${currentScriptFilename}\n${script}\n__SETUP_SH__\nbash ${currentScriptFilename}`;
+    }
+
+    function updateAgentDisplayName() {
+      const input = document.getElementById('agentDisplayNameInput');
+      currentAgentDisplayName = input ? input.value.replace(/[\r\n]+/g, ' ').trim() : '';
+      renderSetupCommand();
     }
 
     function downloadFile(content, fileName, mimeType) {
@@ -5823,7 +5895,7 @@
           <span class="feature-badge">🚀 Major Update</span>
         </div>
         <h2 class="text-xl font-bold text-white mb-1">What's New</h2>
-        <p class="text-gray-400 text-xs">3 powerful capabilities to elevate your demos</p>
+        <p class="text-gray-400 text-xs">4 powerful capabilities to elevate your demos</p>
       </div>
 
       <!-- Scrollable Content Wrapper -->
@@ -5832,7 +5904,20 @@
         <div class="flex-1 overflow-y-auto pr-1 modal-scrollable-content pt-3 premium-mask-fade">
           <div class="modal-scrollable-inner">
 
-      <!-- Feature 1: Agentic Workflow -->
+      <!-- Feature 1: Computer Use (Browser Agent) -->
+      <div class="feature-card mb-4">
+        <div class="flex gap-3">
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500/15 to-pink-500/15 flex items-center justify-center text-rose-400 border border-rose-500/20">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-bold text-white mb-0.5">Computer Use - Autonomous Browser Agent</h4>
+            <p class="text-[11px] text-gray-200 leading-relaxed">Powered by <span class="font-bold text-rose-400">Gemini 3.5 Flash Computer Use</span>, your agent can now operate a real web browser - navigating, clicking, typing, and extracting data from sites that have <span class="font-bold text-rose-400">no API at all</span>: competitor pages, supplier &amp; regulatory portals, public data sources, and internal web apps. Watch it run live via a "Watch Browser Session" link, with step-by-step screenshots streamed straight into the chat. <span class="text-rose-400/80">Automate the ~80% of enterprise systems that have no API - and let customers watch the agent work the same way a person would.</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2: Agentic Workflow -->
       <div class="feature-card mb-4">
         <div class="flex gap-3 mb-3">
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/15 flex items-center justify-center text-amber-400 border border-amber-500/20">
@@ -6071,20 +6156,20 @@
         </div>
       </div>
 
-      <!-- Feature 2: Gemini 3.1 Flash Lite Support -->
-      <div class="feature-card mb-3">
+      <!-- Feature 3: Knowledge Catalog (Dataplex) -->
+      <div class="feature-card mb-4">
         <div class="flex gap-3">
-          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/15 flex items-center justify-center text-violet-400 border border-violet-500/20">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-white mb-0.5">Gemini 3.1 Flash Lite Support</h4>
-            <p class="text-[11px] text-gray-200 leading-relaxed">Easily select the highly efficient <span class="font-bold text-emerald-400">Gemini 3.1 Flash Lite</span> model as your root agent directly within the interactive setup script. <span class="text-emerald-400/80">Dramatically reduce latency in your demo environments, allowing you to deliver lightning-fast and highly responsive client presentations.</span></p>
+            <h4 class="text-sm font-bold text-white mb-0.5">Knowledge Catalog for Metadata-Driven Insights</h4>
+            <p class="text-[11px] text-gray-200 leading-relaxed">Every generated agent now taps <span class="font-bold text-violet-400">Google Cloud Knowledge Catalog (Dataplex)</span> through its managed MCP server. The agent semantically discovers the right data assets and reads rich business metadata - column meanings, units, allowed values, and table relationships - before it ever writes a query. <span class="text-violet-400/80">Showcase governance-aware, metadata-grounded AI that picks the correct data and explains its reasoning, eliminating guessed columns and building instant trust in enterprise-grade analytics.</span></p>
           </div>
         </div>
       </div>
 
-      <!-- Feature 3: Custom MCP Server Import -->
+      <!-- Feature 4: Custom MCP Server Import -->
       <div class="feature-card mb-1">
         <div class="flex gap-3">
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/15 to-cyan-500/15 flex items-center justify-center text-sky-400 border border-sky-500/20">
@@ -6120,7 +6205,7 @@
   </div>
 
   <script>
-    const FEATURE_NOTIFY_KEY = 'feature_v4_whats_new_dismissed';
+    const FEATURE_NOTIFY_KEY = 'feature_v6_whats_new_dismissed';
 
     function maybeShowFeatureNotify() {
       if (localStorage.getItem(FEATURE_NOTIFY_KEY)) return;

@@ -69,7 +69,7 @@ const CONFIG = {
   GITHUB_TOKEN: SCRIPT_PROPS.getProperty('GITHUB_TOKEN'),
   MAX_RETRIES: 3,
   RETRY_DELAY_MS: 1000,
-  APP_VERSION: 'v10.103-public',
+  APP_VERSION: 'v10.112-public',
   LOG_SHEET_URL: SCRIPT_PROPS.getProperty('LOG_SHEET_URL')
 };
 
@@ -492,7 +492,8 @@ function generateDemo(userGoal, options = {}) {
     dataProfile: 'standard',
     publicDatasetId: null,
     usePublicDataset: false,
-    enableWorkspaceMcp: false
+    enableWorkspaceMcp: false,
+    enableComputerUse: false
   };
   options = { ...defaultOptions, ...options };
   
@@ -569,6 +570,7 @@ function generateDemo(userGoal, options = {}) {
       oneSentenceSummary: planResult.oneSentenceSummary,
       importedMcpList: options.importedMcpList,
       enableWorkspaceMcp: options.enableWorkspaceMcp,
+      enableComputerUse: options.enableComputerUse,
       metadata: planResult.metadata
     });
     result.steps.push({ step: 4, status: 'completed', message: 'Generation complete' });
@@ -760,6 +762,22 @@ function planAndGenerateData(userGoal, options) {
     - You MUST design at least TWO prompts (out of the 7 required) in the 'demoGuide' that explicitly ask the agent to perform tasks using these Workspace capabilities (e.g., searching for info in Drive, checking Calendar events, drafting emails, listing chat messages).
 \n`;
   }
+  if (options.enableComputerUse) {
+    prompt += `\n- **🖥️ COMPUTER USE (BROWSER AGENT) AVAILABLE**:
+    - The agent can operate a real headless web browser (Gemini 3.5 Flash Computer Use) to navigate, click, type, fill forms and extract data from sites that have NO API: competitor public pages, supplier/partner portals, government/regulatory sites, public data sources, and internal web apps. Browser runs happen as autonomous background tasks and the user can watch the live session.
+    - You MUST leverage this capability when generating the 'businessInstruction' and 'demoGuide' (prompts).
+    - In 'businessInstruction', mention that the agent can autonomously browse external websites via a browser-automation background task to gather or act on data that has no API.
+    - You MUST design at least TWO prompts (out of the 7 required) in the 'demoGuide' that explicitly ask the agent to browse an external website or portal to accomplish the goal.
+    - 🎯 CRITICAL - CHOOSE TASKS ONLY THE BROWSER CAN DO (avoid native-tool overlap): the agent ALSO has native tools for weather (lookup_weather), places / points-of-interest (search_places), directions & routes (compute_routes), and geocoding, plus BigQuery/Firestore for the demo's own internal data. If a "browser" prompt is really about weather, a place/POI, directions, or data already in the demo database, the model will call those native tools INSTEAD of the browser, and Computer Use will NOT be demonstrated (this is a real failure we have observed - e.g. "check the weather on weather.com" silently used lookup_weather). Therefore the TWO browser prompts MUST target EXTERNAL web content that has NO native tool: e.g. a competitor's public pricing / product-spec page, a distributor catalog, a regulatory / government filing or portal, public statistics, a news or company-announcement page, standards or documentation pages. DO NOT write weather, maps, places, or directions scenarios as the browser prompts.
+    - 🎯 MAKE THE BROWSER INTENT UNAMBIGUOUS: name a SPECIFIC real website in each browser prompt and phrase it as opening/reading that site (e.g. "Open <real site> and find ...", or "Use the browser to look up ... on <real site>"), so it clearly calls for the browser rather than a native tool or the internal database.
+    - 🚨 CRITICAL - USE ONLY REAL, PUBLICLY REACHABLE WEBSITES: every URL you put in a demo prompt MUST be a real site that is live on the public internet and reachable by an anonymous headless browser RIGHT NOW (no login/paywall/allowlist). The browser tool actually visits these URLs, so a fake domain makes the demo fail.
+      - ❌ NEVER invent placeholder or fictional domains. Do NOT use example.com, example-supplier.co.jp, acme-corp.com, yourcompany.com, *.internal, or any made-up brand/portal hostname. These do not resolve and will break the browse.
+      - ✅ Instead target real public sites that fit the domain, e.g.: official manufacturer / product catalog pages (that publish specs, availability or price without login), major e-commerce or distributor sites (e.g. amazon.com, or a real industrial-parts distributor's public catalog), price-comparison sites, government / regulatory portals (e.g. sec.gov, fda.gov, or the relevant national agency), standards bodies, public data sources (e.g. Wikipedia, official statistics portals), central-bank / FX / news sites, and public documentation pages. (Do NOT pick weather sites - the agent has a native weather tool that will be used instead of the browser.)
+      - Re-frame "supplier/partner portal" scenarios so they hit a REAL public target: instead of "check stock on our supplier's portal (parts.example-supplier.co.jp)", write "look up the current price and availability of part <X> on <a real distributor's public catalog, e.g. mcmaster.com / digikey.com / the manufacturer's public product page>". Keep the business framing, but point at a site the browser can actually open.
+      - If you cannot name a specific real URL for a scenario, use a web-search framing instead (e.g. "search the web for the current market price of <X> and report the top source") rather than fabricating a domain.
+    - When synthesizing sample data, if you include an external URL field (e.g. source_url, product_page_url, reference_url), it MUST also be a real, currently-reachable public URL under the same rules above - never a fabricated domain. Prefer omitting the field over inventing a fake URL.
+\n`;
+  }
   const response = callVertexAIWithRetry(prompt);
   
   let parsed;
@@ -801,7 +819,8 @@ function planAndGenerateData(userGoal, options) {
       if (file.mimeType && file.mimeType.startsWith('image/') && file.imagePrompt) {
         try {
           console.log(`[ImageGen-Pipeline] Generating simulated image for [${file.fileName}]...`);
-          const genResult = generateImageBase64WithRetry(file.imagePrompt);
+          const finalImagePrompt = buildImagePromptWithRows_(file);
+          const genResult = generateImageBase64WithRetry(finalImagePrompt);
           
           // JSONオブジェクトを直接拡張（In-Memory保存）
           file.base64Data = genResult.base64Data;
@@ -862,6 +881,12 @@ function getTechnicalInstruction_() {
     "6. **TRANSPARENCY & GROUNDING (CRITICAL)**: Instruct the agent to be highly transparent about its reasoning, " +
     "explicitly mentioning which tables and files it is consulting and what specific values it found, " +
     "to ensure the user can trace its logic back to the source data.\n" +
+    "6b. **KNOWLEDGE CATALOG / METADATA-DRIVEN ANALYSIS (CRITICAL)**: Instruct the agent that it has access to the Knowledge Catalog (Dataplex) MCP tools " +
+    "and MUST ground its analysis in metadata before composing BigQuery queries. Mandatory workflow: " +
+    "(a) for ANY exploratory or discovery question (e.g. 'what data do we have', 'what can you analyze', 'find data useful for X'), it MUST call 'search_entries' FIRST — before 'list_table_ids' / 'list_dataset_ids' — to discover and rank the relevant assets; " +
+    "(b) it MUST use 'lookup_entry' / 'lookup_context' (NOT 'get_table_info') to read column meanings, units, allowed values, data classifications, and table relationships (join keys); " +
+    "(c) only then build the BigQuery query, selecting the correct tables and join keys based on the catalog metadata. Use 'get_table_info' only to confirm exact column types right before writing SQL, or during SQL error recovery. " +
+    "If a catalog call returns nothing right after provisioning (metadata harvest can lag a few minutes), fall back to inspecting tables directly and retry catalog discovery later.\n" +
     "7. **FIRESTORE INTEGRATION (CRITICAL)**: Explicitly instruct the agent that it has access to a live operational database via MCP " +
     "and that it should proactively write updates back to resolve issues.\n" +
     "8. **CONFIRMATION WORKFLOW (CRITICAL)**: Explicitly instruct the agent that whenever a user asks to insert, update, delete, or merge data in BigQuery or Firestore, " +
@@ -1227,6 +1252,12 @@ If the Business Problem naturally involves processing non-structured inputs like
   - Each generated document image (such as invoices, orders, inspection sheets, or logs) MUST contain a table grid with **AT LEAST TWO (2) OR MORE distinct row items** (e.g., multiple different products, tasks, or errors).
   - **Never generate a document with only a single item row.** A single-row document fails to demonstrate the agent's capability to iterate, decompose, and process multi-line transactions.
   - Even if the scenario describes a specific issue (e.g., a damaged package or a specific error), the document itself should represent a broader context containing multiple rows (e.g., an inspection log of multiple items where one or more are marked as damaged, or a batch error report listing multiple errors).
+  - **STRUCTURED ROW DATA (MANDATORY) — SEPARATION OF LAYOUT AND DATA**:
+    - Each image file object MUST include two extra fields alongside 'imagePrompt': 'imageColumns' and 'imageRows'.
+    - 'imageColumns': an array of the table column headers, translated into the target language (e.g., ["Item", "Quantity", "Code"] translated).
+    - 'imageRows': an array of **2 to 4** strings. Each string is ONE full table row, with its cell values joined by " | " in the same order as 'imageColumns', already translated into the target language (e.g., "Soy Sauce 1.8L | 50 | SY-180" translated). These row values MUST correspond to actual generated BQ/Firestore transaction data.
+    - At least ONE of the 'imageRows' MUST embed the audit-seed discrepancy for this document (e.g., abnormal quantity, discontinued/obsolete code, fuzzy spec) while the other rows are normal transactions.
+    - **Do NOT bury the concrete row values inside the 'imagePrompt' prose.** The 'imagePrompt' describes ONLY the layout, paper texture, handwriting style, zero background, and column structure; the exact line items live in 'imageRows' (they are injected into the final prompt deterministically by the system).
 - **ULTRA-REALISTIC DOCUMENT IMAGE PROMPT STRUCTURE (MANDATORY)**:
   - Each 'imagePrompt' (English only) MUST be a highly detailed, descriptive text designed for DALL-E or Imagen to generate a **highly-realistic, top-down flat-lay photograph of a handwritten document page on a textured sheet of paper**.
   - **ZERO BACKGROUND / COMPLETE ISOLATION (STRICTLY REQUIRED)**:
@@ -1328,14 +1359,18 @@ Output in the following JSON format. Output **pure JSON only without code blocks
       "fileName": "handwritten_fax_order_task1.jpg",
       "mimeType": "image/jpeg",
       "description": "Simulated operational document 1 (e.g. handwritten purchase order from Client A with normal quantities)",
-      "imagePrompt": "A highly detailed, realistic top-down flat-lay scan of a formal purchase order sheet. The clean white document page fills the entire frame with zero background, completely isolated. At the top center, a bold formal header matching the domain (e.g., 'PURCHASE ORDER') is printed. On the top-left, recipient details and company name are printed in a clean corporate font. On the top-right, sender company details along with localized contact information are printed. In the center, a neatly aligned printed table grid with thin gray lines features standard columns like 'Item No.', 'Product Name', and 'Quantity'. Inside the table cells, highly realistic, messy, and hurried human handwriting in black ballpoint pen ink is neatly filled, showing AT LEAST TWO (2) OR THREE (3) distinct product rows with their respective quantities and codes (showing realistic human imperfections, hurried scribbles, varying character sizes, and slight character misalignment). Natural flat daylight illuminates the scene, showing subtle paper folds and real-world operational handling texture. Sharp contrast, flat perspective, and zero angled shots."
+      "imagePrompt": "A highly detailed, realistic top-down flat-lay scan of a formal purchase order sheet. The clean white document page fills the entire frame with zero background, completely isolated. At the top center, a bold formal header matching the domain (e.g., 'PURCHASE ORDER') is printed. On the top-left, recipient details and company name are printed in a clean corporate font. On the top-right, sender company details along with localized contact information are printed. In the center, a neatly aligned printed table grid with thin gray lines features the column headers listed below. Inside the table cells, highly realistic, messy, and hurried human handwriting in black ballpoint pen ink is neatly filled (showing realistic human imperfections, hurried scribbles, varying character sizes, and slight character misalignment). Natural flat daylight illuminates the scene, showing subtle paper folds and real-world operational handling texture. Sharp contrast, flat perspective, and zero angled shots.",
+      "imageColumns": ["Item No.", "Product Name", "Quantity"],
+      "imageRows": ["1 | <localized product A> | 50", "2 | <localized product B> | 120", "3 | <localized product C> | 30"]
     },
     {
       "id": "file3",
       "fileName": "handwritten_fax_order_task2.jpg",
       "mimeType": "image/jpeg",
       "description": "Simulated operational document 2 (e.g. handwritten purchase order from Client B showcasing a clear quantity or product ID discrepancy for audit verification)",
-      "imagePrompt": "A high-quality, top-down flat scan of a different formal transaction document (e.g., 'INVOICE' or 'DELIVERY SLIP') filling the entire frame with no background. Features a bold domain-specific printed header with date and document reference numbers. Recipient and sender corporate details are cleanly aligned at the top. In the center, a printed table grid features AT LEAST TWO (2) OR THREE (3) distinct catalog item rows. Inside the grid cells, highly realistic, hurried, and messy human handwriting in dark blue ink lists these multiple items, with at least one of the rows intentionally showcasing a clear operational discrepancy (such as an abnormally high quantity, discontinued item code, or fuzzy specification to trigger the audit flow) while other rows represent normal transactions. The handwriting is slightly untidy, hurried, and scribble-like, showcasing human imperfection and hasty pen strokes. A designated signature block or faint red ink corporate stamp is present in the designated footer space. Clear flat document view with zero perspective blur."
+      "imagePrompt": "A high-quality, top-down flat scan of a different formal transaction document (e.g., 'INVOICE' or 'DELIVERY SLIP') filling the entire frame with no background. Features a bold domain-specific printed header with date and document reference numbers. Recipient and sender corporate details are cleanly aligned at the top. In the center, a printed table grid features the column headers listed below. Inside the grid cells, highly realistic, hurried, and messy human handwriting in dark blue ink lists the line items. The handwriting is slightly untidy, hurried, and scribble-like, showcasing human imperfection and hasty pen strokes. A designated signature block or faint red ink corporate stamp is present in the designated footer space. Clear flat document view with zero perspective blur.",
+      "imageColumns": ["Code", "Item", "Quantity"],
+      "imageRows": ["A-101 | <localized item X> | 40", "A-205 | <localized item Y> | 999", "B-330 | <localized discontinued item Z> | 15"]
     }
   ],
   "tables": [
@@ -1400,7 +1435,7 @@ Output in the following JSON format. Output **pure JSON only without code blocks
     - **NO PRODUCT NAMES (CRITICAL)**: DO NOT include specific product names like 'Firestore', 'BigQuery', or 'Google Cloud' in the prompt text. Use completely generic business terminology like 'our operational database', 'internal records', or 'the compliance tracker'.
     - **NO FILENAMES (CRITICAL)**: DO NOT include specific file names or extensions (e.g., 'market_report_2024', 'data.tsv') in the prompt text. Use generic phrasing.
     1. **DISTRIBUTION & ADVANCED PROGRESSION (CRITICAL)**: Generate exactly 7 prompts tailored completely to the specific business challenge and industry context:
-        - **Prompts 1-2 (Foundation & Discovery)**: Data overview, schema exploration, and initial audit scan. Establish familiarity with the data landscape.
+        - **Prompts 1-2 (Foundation & Discovery)**: Data overview, schema exploration, and initial audit scan. Establish familiarity with the data landscape. At least ONE of these MUST be a metadata-driven discovery question that pushes the agent to consult the data catalog metadata first (column meanings, units, allowed values, table relationships) before querying — phrase it generically (e.g. 'What data do we have available and what kinds of analysis can it support?') without naming any product.
         - **Prompt 3 (CROSS-SOURCE DISCOVERY - WOW MOMENT, MANDATORY)**: This prompt MUST be designed so that the answer REQUIRES the agent to discover a hidden connection between the external file data and BigQuery data that is NOT obvious from either source alone. Phrase it as a high-level strategic question (e.g., 'What is the biggest untracked financial risk across our operations?') so the agent must autonomously decide to cross-reference the uploaded file against internal records. The Audit Seed from Section 6a provides the discrepancy the agent should discover. This prompt creates the most impressive demo moment.
         - **Prompts 4-5 (MULTI-STEP DEPENDENT WORKFLOW - WOW MOMENT)**: These prompts MUST trigger FULL multi-step workflow execution demonstrating INTERDEPENDENT step chains where each step depends on the previous step's output. Prompt 4 MUST be a workflow with 10 items or fewer designed for IMMEDIATE synchronous execution. Each step must depend on the previous step's output (e.g., 'Scan all pending items, classify by severity, auto-process anything within tolerance, and generate an exception report for the remaining items'). The agent should demonstrate the full SCAN-CLASSIFY-PROCESS-ESCALATE-NOTIFY-AUDIT dependency chain in real-time. Prompt 5 MUST be a LARGE-SCOPE workflow implying more than 10 items or long-running processing, where the agent should propose BACKGROUND execution mode. Phrase it as a comprehensive batch operation (e.g., 'Run a full reconciliation across all records from the past quarter - identify discrepancies, auto-correct minor variances, flag major issues, and generate a compliance report'). The agent MUST demonstrate the execution mode selection dialog (immediate vs. background vs. scheduled).
         - **Prompt 6 (SCHEDULED WORKFLOW - Automated Monitoring)**: A prompt that explicitly asks for a RECURRING scheduled workflow. The agent must propose using scheduled task registration with a cron expression and explain the monitoring logic. Example style: 'Set up an automated daily check at 9am - scan for new threshold breaches since yesterday, auto-escalate critical ones, and send me a summary report each morning.' The agent should demonstrate register_scheduled_task and explain what the background agent will do autonomously on each scheduled run.
@@ -1435,6 +1470,10 @@ Output in the following JSON format. Output **pure JSON only without code blocks
     3. **STAR SCHEMA PREFERENCE**: When generating multiple tables, favor a "Star Schema" approach. Include at least one central "Dimension/Master" table (e.g., 'products', 'locations', 'customers') that other "Fact/Log" tables reference. This ensures better data connectivity and analytical depth.
     4. **NO ISOLATED TABLES (CRITICAL)**: Every table MUST be connected to at least one other table via shared '_id' columns. Isolated tables (islands) are strictly forbidden. Ensure that all tables can be joined together directly or through an intermediary table. After generating all tables, verify: for each table T, there exists at least one other table that shares an '_id' column name with T.
     5. Tables MUST be designed for joining.
+- **METADATA QUALITY (CRITICAL FOR KNOWLEDGE CATALOG)**: Table and column descriptions are harvested into Google Cloud Knowledge Catalog (Dataplex) and used by the agent for semantic discovery and metadata-driven analysis. Write them as analytics-grade metadata, not restatements of the name:
+    1. **Column description** MUST convey: the business meaning, the unit or currency where applicable (e.g. "amount in JPY", "duration in seconds"), the set of allowed/expected values for categorical or enum-like fields, and — for any '_id' column — the foreign-key relationship (which table and key it references, e.g. "FK to products.product_id").
+    2. **Table description** MUST be a single concise line stating the grain (what one row represents), the table's analytical purpose, and its primary join keys (e.g. "One row per order line; fact table for sales analysis; joins to products via product_id and stores via store_id").
+    3. Keep descriptions specific and self-contained so an agent reading only the catalog metadata can decide which table/column to query.
 - **LANGUAGE CONSISTENCY (CRITICAL)**: Detect the language used in the "Business Problem" above. You MUST use this same language for ALL user-facing fields, including:
     - Table and Column descriptions
     - STRING values in the CSV data (e.g., product names, categories, person names, names of things)
@@ -1854,7 +1893,7 @@ Return ONLY the name, nothing else.`;
 }
 
 function generateSetupScript(params) {
-  const { datasetId, systemInstruction, referenceDate, publicDatasetId, suffix, tables, firestore, userGoal, dirName, agentShortName, oneSentenceSummary, enableWorkspaceMcp, metadata } = params;
+  const { datasetId, systemInstruction, referenceDate, publicDatasetId, suffix, tables, firestore, userGoal, dirName, agentShortName, oneSentenceSummary, enableWorkspaceMcp, enableComputerUse, metadata } = params;
 
   // ── Deduplicate importedMcpList by github_url ──
   // When the same MCP repo appears multiple times (e.g. from catalog + URL import),
@@ -1932,6 +1971,14 @@ function generateSetupScript(params) {
     viewerFunctionsFramework: 'functions-framework>=3.5.0',
     viewerFlask: 'flask>=3.0.3',
     viewerFirestore: 'google-cloud-firestore>=2.16.0',
+
+    // Computer Use (browser agent) -- only added when enableComputerUse is set.
+    // playwright pin matches the official reference impl
+    // (github.com/google-gemini/computer-use-preview). The genai floor is bumped
+    // to the version exposing types.ComputerUse/types.Environment for the
+    // generate_content computer_use tool config.
+    playwright: 'playwright==1.55.0',
+    genaiComputerUse: 'google-genai>=2.7.0',
   };
 
   
@@ -1988,6 +2035,30 @@ function generateSetupScript(params) {
   bqCommands += `if [ \$bq_fail -ne 0 ]; then\n`;
   bqCommands += `  echo "⚠️ Some BigQuery table loads failed. Please check above logs."\n`;
   bqCommands += `fi\n\n`;
+
+  // --- Knowledge Catalog metadata injection ---
+  // Write table/column descriptions into BigQuery so Knowledge Catalog (Dataplex)
+  // auto-harvests rich, deterministic metadata that the agent can discover via the
+  // Knowledge Catalog MCP server (search_entries / lookup_entry / lookup_context).
+  // Descriptions are base64-encoded here (UTF-8) and decoded at runtime, so arbitrary
+  // free text in any language never needs shell/JSON escaping.
+  bqCommands += `echo "🏷  Applying Knowledge Catalog metadata (table & column descriptions)..."\n`;
+  for (const table of tables) {
+    const bqSchema = table.schema.map(f => ({
+      name: f.name,
+      type: f.type,
+      description: (f.description || '').toString()
+    }));
+    const schemaB64 = Utilities.base64Encode(JSON.stringify(bqSchema), Utilities.Charset.UTF_8);
+    bqCommands += `echo '${schemaB64}' | base64 -d > ${table.tableName}_schema.json\n`;
+    bqCommands += `bq update ${datasetId}.${table.tableName} ${table.tableName}_schema.json >/dev/null 2>&1 && echo "    ✅ Column metadata: ${table.tableName}" || echo "    ⚠️  Column metadata skipped: ${table.tableName}"\n`;
+    if (table.description) {
+      const descB64 = Utilities.base64Encode(table.description.toString(), Utilities.Charset.UTF_8);
+      bqCommands += `bq update --description "\$(echo '${descB64}' | base64 -d)" ${datasetId}.${table.tableName} >/dev/null 2>&1 || true\n`;
+    }
+    bqCommands += `rm -f ${table.tableName}_schema.json\n`;
+  }
+  bqCommands += `\n`;
 
   let firestoreCommands = '';
   if (firestore && firestore.collectionName && firestore.documents) {
@@ -3296,6 +3367,128 @@ def list_activity():
     except Exception as _e:
         return jsonify({"activities": [], "error": str(_e)})
 
+# --- Computer Use live-view (screencast of the sandbox browser) ---
+BROWSER_VIEW_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browser Session - Live View</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0b0f17; color: #e5e7eb; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+        .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #111827; border-bottom: 1px solid #1f2937; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .dot.idle { background: #6b7280; box-shadow: none; }
+        .url { flex: 1; font-family: monospace; font-size: 13px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .status { font-size: 12px; color: #93c5fd; text-transform: uppercase; letter-spacing: .05em; }
+        .stage { padding: 16px; }
+        .frame { max-width: 1200px; margin: 0 auto; border: 1px solid #1f2937; border-radius: 10px; overflow: hidden; background: #000; }
+        img { display: block; width: 100%; height: auto; }
+        .intent { max-width: 1200px; margin: 10px auto 0; font-size: 13px; color: #9ca3af; }
+        .empty { max-width: 1200px; margin: 40px auto; text-align: center; color: #6b7280; }
+        .confirm { max-width: 1200px; margin: 12px auto 0; padding: 14px 16px; background: #3f2d10; border: 1px solid #b45309; border-radius: 10px; display: none; }
+        .confirm h3 { margin: 0 0 6px; font-size: 14px; color: #fbbf24; }
+        .confirm p { margin: 0 0 10px; font-size: 13px; color: #fde68a; }
+        .btns { display: flex; gap: 10px; }
+        button { border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .approve { background: #059669; color: #fff; }
+        .reject { background: #b91c1c; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="bar">
+        <span class="dot idle" id="dot"></span>
+        <span class="url" id="url">Waiting for session...</span>
+        <span class="status" id="status">idle</span>
+    </div>
+    <div class="stage">
+        <div class="confirm" id="confirm">
+            <h3 id="confirmTitle">Action requires confirmation</h3>
+            <p id="confirmBody"></p>
+            <div class="btns">
+                <button class="approve" onclick="decide('approved')">Approve</button>
+                <button class="reject" onclick="decide('rejected')">Reject</button>
+            </div>
+        </div>
+        <div class="frame"><img id="shot" alt="browser screenshot" style="display:none;" /></div>
+        <div class="intent" id="intent"></div>
+        <div class="empty" id="empty">No screenshot yet. The browser session will appear here.</div>
+    </div>
+    <script>
+        var SID = "{{ session_id }}";
+        function decide(dec) {
+            fetch('/api/browser/' + SID + '/decision', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({decision: dec})
+            }).then(function(){ document.getElementById('confirm').style.display = 'none'; }).catch(function(){});
+        }
+        function poll() {
+            if (!SID) return;
+            fetch('/api/browser/' + SID).then(function(r){ return r.json(); }).then(function(d){
+                var st = d.status || 'idle';
+                document.getElementById('status').textContent = st;
+                document.getElementById('url').textContent = d.url || ('Session ' + SID);
+                document.getElementById('dot').className = (st === 'working' || st === 'awaiting_confirmation') ? 'dot' : 'dot idle';
+                if (d.screenshot_b64) {
+                    var img = document.getElementById('shot');
+                    img.src = 'data:image/jpeg;base64,' + d.screenshot_b64;
+                    img.style.display = 'block';
+                    document.getElementById('empty').style.display = 'none';
+                }
+                document.getElementById('intent').textContent = d.intent ? ('Step ' + (d.step || 0) + ': ' + d.intent) : '';
+                var c = document.getElementById('confirm');
+                if (st === 'awaiting_confirmation') {
+                    document.getElementById('confirmBody').textContent = (d.confirm_category ? ('[' + d.confirm_category + '] ') : '') + (d.confirm_action || 'The agent wants to perform a sensitive action.');
+                    c.style.display = 'block';
+                } else {
+                    c.style.display = 'none';
+                }
+            }).catch(function(){});
+        }
+        setInterval(poll, 1000);
+        poll();
+    </script>
+</body>
+</html>
+"""
+
+@app.route('/browser-view')
+def browser_view():
+    return render_template_string(BROWSER_VIEW_HTML, session_id=request.args.get("session", ""))
+
+@app.route('/api/browser/<session_id>')
+def api_browser(session_id):
+    if not DEMO_ID:
+        return jsonify({"error": "DEMO_ID not set"}), 400
+    doc = db.collection(DEMO_ID + "_browser_sessions").document(session_id).get()
+    if not doc.exists:
+        return jsonify({"status": "unknown", "step": 0, "intent": "", "url": "", "screenshot_b64": ""})
+    d = doc.to_dict()
+    return jsonify({
+        "status": d.get("status", ""),
+        "step": d.get("step", 0),
+        "intent": d.get("intent", ""),
+        "url": d.get("url", ""),
+        "screenshot_b64": d.get("screenshot_b64", ""),
+        "confirm_action": d.get("confirm_action", ""),
+        "confirm_category": d.get("confirm_category", ""),
+        "updated_at": d.get("updated_at", ""),
+    })
+
+@app.route('/api/browser/<session_id>/decision', methods=['POST'])
+def api_browser_decision(session_id):
+    if not DEMO_ID:
+        return jsonify({"error": "DEMO_ID not set"}), 400
+    body = request.get_json(silent=True) or {}
+    decision = body.get("decision", "") or request.args.get("decision", "")
+    if decision not in ("approved", "rejected"):
+        return jsonify({"error": "decision must be approved or rejected"}), 400
+    db.collection(DEMO_ID + "_browser_sessions").document(session_id).set({"confirm_decision": decision}, merge=True)
+    return jsonify({"success": True, "decision": decision})
+
 def main(request):
     with app.request_context(request.environ):
         try:
@@ -3371,6 +3564,11 @@ echo ""
 
 SLACK_TOKEN_SECRET="${dirName}-slack-token"
 SKIP_SLACK_OAUTH=false
+
+# Defensive: this block reads/writes Secret Manager (existing-token check below
+# and the token save at the end), so ensure the API is enabled even if this
+# block ever runs before the main API-enable batch. Idempotent; no-op if already on.
+gcloud services enable secretmanager.googleapis.com --project="$PROJECT_ID" 2>/dev/null || true
 
 # Check if token already stored in Secret Manager
 EXISTING_SLACK_TOKEN=""
@@ -3593,7 +3791,8 @@ echo ""
     "clouderrorreporting.googleapis.com",
     "telemetry.googleapis.com",
     "firestore.googleapis.com",
-    "cloudfunctions.googleapis.com"
+    "cloudfunctions.googleapis.com",
+    "dataplex.googleapis.com"
   ];
   if (enableWorkspaceMcp) {
     apisToEnable.push(
@@ -4107,6 +4306,12 @@ for coll_name in ['${dirName}_task_definitions', '${dirName}_task_executions', '
     exit 0
   fi
 
+# --- Agent display name (human-readable label shown in Gemini Enterprise). ---
+# Only the human-readable part is customizable. The "(${dirName})" suffix is
+# appended at registration and MUST stay fixed so --cleanup can reliably find
+# and remove this demo's resources.
+AGENT_DISPLAY_NAME='${safeShortName}' # ge:agent-display-name
+
 # --- 1. Project Detection & Confirmation Loop ---
 while true; do
   echo "========================================================="
@@ -4116,12 +4321,12 @@ while true; do
   echo "   Options:      --help | --cleanup | --model-analysis-agent | --model-root-agent"
   echo "========================================================="
   echo "🚀 Target Project: \$PROJECT_ID"
-  echo '🤖 Agent Name:    ${safeShortName} (${dirName})'
+  echo "🤖 Agent Name:    \$AGENT_DISPLAY_NAME (${dirName})"
   echo '📝 Description:   ${safeSummary}'
   echo "📂 Demo Asset Directory: ~/${dirName}"
   echo "🧠 Agent Models:   root_agent: \$AGENT_MODEL_LITE / deep_analysis_agent: \$AGENT_MODEL"
   echo "🧪 Code Sandbox:   ✅ Enabled (Agent Runtime)"
-  ${ enableWorkspaceMcp ? `echo "🔌 Google Workspace MCP: Enabled"\n` : ''}${mcpBanner}echo "========================================================="
+  ${ enableComputerUse ? `echo "🖥️ Computer Use:   ✅ Enabled (Browser Agent)"\n` : ''}${ enableWorkspaceMcp ? `echo "🔌 Google Workspace MCP: Enabled"\n` : ''}${mcpBanner}echo "========================================================="
   
   echo "Choose an option:"
   echo "  [Y] Yes, proceed with this project (Default)"
@@ -4191,17 +4396,70 @@ echo "========================================================="
 echo "This setup script will automatically deploy to Cloud Run and"
 echo "register it to Gemini Enterprise."
 echo ""
-echo "⚠️  IMPORTANT: You MUST have a Gemini Enterprise instance"
-echo "   already created in this project."
-echo ""
-echo "If you haven't, please create one here first:"
-echo "https://console.cloud.google.com/gemini-enterprise/products?project=$PROJECT_ID"
-echo ""
-read -p "Have you confirmed the instance exists? (y/n) " -n 1 -r
-echo
-if [[ ! \$REPLY =~ ^[Yy]$ ]]; then
-    echo "Exiting. Please create the instance and run the script again."
-    exit 1
+echo "🔍 Checking for an existing Gemini Enterprise app in this project..."
+
+# Reuse the same Discovery Engine app-detection logic used later during agent
+# registration: list engines across common locations and keep only real
+# Gemini Enterprise apps (SUBSCRIPTION_TIER_SEARCH_AND_ASSISTANT).
+GE_TOKEN=$(gcloud auth application-default print-access-token 2>/dev/null || gcloud auth print-access-token 2>/dev/null)
+GE_APP_FOUND=0
+GE_APP_LIST=()
+if [ ! -z "\$GE_TOKEN" ]; then
+  for LOC in "global" "us" "eu"; do
+    if [ "\$LOC" = "global" ]; then
+      ENDPOINT="discoveryengine.googleapis.com"
+    else
+      ENDPOINT="\${LOC}-discoveryengine.googleapis.com"
+    fi
+    GE_JSON=$(curl -s -H "Authorization: Bearer \$GE_TOKEN" -H "X-Goog-User-Project: \$PROJECT_ID" \
+      "https://\$ENDPOINT/v1alpha/projects/\$PROJECT_ID/locations/\$LOC/collections/default_collection/engines")
+    # Emit "displayName|appId" per real Gemini Enterprise app in this location.
+    GE_APPS_INFO=$(echo "\$GE_JSON" | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    engines = [e for e in data.get("engines", []) if e.get("searchEngineConfig", {}).get("requiredSubscriptionTier") == "SUBSCRIPTION_TIER_SEARCH_AND_ASSISTANT"]
+    for e in engines:
+        print((e.get("displayName") or "(unnamed)") + "|" + e["name"].split("/")[-1])
+except Exception:
+    pass
+')
+    if [ ! -z "\$GE_APPS_INFO" ]; then
+      while read -r line; do
+        if [ ! -z "\$line" ]; then
+          GE_DISPLAY_NAME=$(echo "\$line" | cut -d'|' -f1)
+          GE_APP_ID=$(echo "\$line" | cut -d'|' -f2)
+          GE_APP_LIST+=("\$GE_DISPLAY_NAME (id: \$GE_APP_ID, location: \$LOC)")
+          GE_APP_FOUND=\$((GE_APP_FOUND + 1))
+        fi
+      done <<< "\$GE_APPS_INFO"
+    fi
+  done
+fi
+
+if [ "\$GE_APP_FOUND" -gt 0 ] 2>/dev/null; then
+  echo "✅ Found \$GE_APP_FOUND Gemini Enterprise app(s) in this project:"
+  for GE_APP in "\${GE_APP_LIST[@]}"; do
+    echo "   • \$GE_APP"
+  done
+  echo "Proceeding automatically."
+else
+  echo ""
+  echo "⚠️  Could not automatically detect a Gemini Enterprise app in 'global', 'us', or 'eu'."
+  echo "   (This can also happen if the Discovery Engine API is not yet enabled, or if"
+  echo "    your account lacks permission to list apps — in which case detection may be"
+  echo "    a false negative.)"
+  echo ""
+  echo "   You MUST have a Gemini Enterprise instance already created in this project."
+  echo "   If you haven't, please create one here first:"
+  echo "   https://console.cloud.google.com/gemini-enterprise/products?project=$PROJECT_ID"
+  echo ""
+  read -p "Have you confirmed the instance exists? (y/n) " -n 1 -r
+  echo
+  if [[ ! \$REPLY =~ ^[Yy]$ ]]; then
+      echo "Exiting. Please create the instance and run the script again."
+      exit 1
+  fi
 fi
 
 ${wsmcpInstructions}
@@ -4214,11 +4472,15 @@ if ! gcloud projects get-iam-policy "$PROJECT_ID" >/dev/null 2>&1; then
   echo "    (Needs Project IAM Admin or Owner role)"
 fi
 
-${mcpReads}
-${mcpCredentialSetup}
-
 # --- 2. IAM & API Checks ---
 ${enableCommands}
+
+# MCP credential collection (Slack OAuth, sidecar env vars) must run AFTER the
+# API-enable batch above: these blocks write to Secret Manager, so
+# secretmanager.googleapis.com has to be enabled first. Running them here also
+# lets the (minutes-long) interactive OAuth steps double as propagation buffer.
+${mcpReads}
+${mcpCredentialSetup}
 
 echo "📡 Enabling Cloud Run specific APIs..."
 gcloud services enable \
@@ -4273,7 +4535,7 @@ grant_roles_fast "$PROJECT_ID" "serviceAccount" "\$COMPUTE_SA" \
   "roles/mcp.toolUser" "roles/bigquery.jobUser" "roles/bigquery.dataEditor" \
   "roles/serviceusage.serviceUsageConsumer" "roles/aiplatform.user" "roles/logging.logWriter" \
   "roles/datastore.user" "roles/storage.objectViewer" "roles/artifactregistry.admin" "roles/run.invoker" \
-  "roles/pubsub.publisher" "roles/cloudscheduler.admin"
+  "roles/pubsub.publisher" "roles/cloudscheduler.admin" "roles/dataplex.catalogViewer"
 
 # Background task infra: Cloud Scheduler SA needs pubsub.publisher
 echo "🔐 Configuring IAM for Cloud Scheduler Service Agent..."
@@ -4289,6 +4551,7 @@ echo "🔧 Enabling MCP services (parallel)..."
 gcloud beta services mcp enable bigquery.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
 gcloud beta services mcp enable mapstools.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
 gcloud beta services mcp enable firestore.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
+gcloud beta services mcp enable dataplex.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
 gcloud services enable aiplatform.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
 gcloud services enable cloudscheduler.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
 gcloud services enable pubsub.googleapis.com --project="$PROJECT_ID" 2>/dev/null &
@@ -4343,6 +4606,7 @@ ${PINNED_DEPS.pubsub}
 ${PINNED_DEPS.firestore}
 ${PINNED_DEPS.logging}
 ${PINNED_DEPS.otel}
+${ enableComputerUse ? `${PINNED_DEPS.playwright}\n${PINNED_DEPS.genaiComputerUse}` : '' }
 __REQ_EOF__
 
 # Generate pyproject.toml required for adk project type
@@ -4375,6 +4639,14 @@ WORKDIR /app
 COPY requirements.txt pyproject.toml ./
 RUN uv pip install --system -r requirements.txt
 __DOCKER_EOF__
+
+${ enableComputerUse ? `
+# -- Computer Use: install Chromium + OS libs for headless Playwright browsing --
+cat <<'__DOCKER_CU_EOF__' >> Dockerfile
+RUN playwright install --with-deps chromium
+ENV PLAYWRIGHT_HEADLESS=1
+__DOCKER_CU_EOF__
+` : '' }
 
 ${ (params.importedMcpList && params.importedMcpList.filter(m => m.type !== 'remote').length > 0) ? `
 # ── Custom MCP servers: language-aware Dockerfile layers ──
@@ -4808,8 +5080,8 @@ _orig_send = httpx.AsyncClient.send
 async def _patched_send(self, request, *args, **kwargs):
     _url = str(request.url)
     
-    # BigQuery & Firestore MCP Auth Injection
-    if "bigquery.googleapis.com/mcp" in _url or "firestore.googleapis.com/mcp" in _url:
+    # BigQuery, Firestore & Knowledge Catalog (Dataplex) MCP Auth Injection
+    if "bigquery.googleapis.com/mcp" in _url or "firestore.googleapis.com/mcp" in _url or "dataplex.googleapis.com/mcp" in _url:
         token = await _get_fresh_mcp_token()
         if token: request.headers['Authorization'] = f"Bearer {token}"
             
@@ -4825,7 +5097,7 @@ async def _patched_send(self, request, *args, **kwargs):
     # the HTTP transport layer in ADK rejects them before the LLM can see the error details.
     # By converting to 200, the JSON-RPC error payload reaches the LLM, which can then
     # report the actual error (e.g., "Column not found") and attempt recovery.
-    if response.status_code in [400, 403] and ("bigquery.googleapis.com/mcp" in _url or "firestore.googleapis.com/mcp" in _url):
+    if response.status_code in [400, 403] and ("bigquery.googleapis.com/mcp" in _url or "firestore.googleapis.com/mcp" in _url or "dataplex.googleapis.com/mcp" in _url):
         try:
             body = b""
             async for chunk in response.aiter_bytes():
@@ -5016,12 +5288,37 @@ def get_maps_mcp_toolset():
     project_id = get_project_id()
     url = get_maps_mcp_url()
     return McpToolset(connection_params=StreamableHTTPConnectionParams(
-        url=url, 
+        url=url,
         headers={
             "x-goog-api-key": maps_api_key
         },
         timeout=300
     ))
+
+def get_knowledge_catalog_mcp_url():
+    """Returns the Knowledge Catalog (Dataplex) remote MCP URL."""
+    return "https://dataplex.googleapis.com/mcp"
+
+def get_knowledge_catalog_mcp_toolset():
+    """Creates a Knowledge Catalog (Dataplex Universal Catalog) MCP toolset.
+
+    Read-only discovery + metadata retrieval so the agent can find the right
+    data assets semantically (search_entries) and understand column meaning,
+    classification, and relationships (lookup_entry / lookup_context) before
+    composing BigQuery queries. Write tools (create/update_*) are excluded via
+    tool_filter to keep the function-declaration count low, mirroring the
+    Firestore toolset policy."""
+    project_id = get_project_id()
+    url = get_knowledge_catalog_mcp_url()
+    return McpToolset(connection_params=StreamableHTTPConnectionParams(
+        url=url,
+        headers={"x-goog-user-project": project_id},
+        timeout=300
+    ), tool_filter=[
+        'search_entries', 'lookup_entry', 'lookup_context',
+        'list_data_products', 'list_data_assets',
+        'get_data_product', 'get_data_asset',
+    ])
 
 # Initialize Firestore client for background task management
 # Stored on builtins so tools.py functions can access it without circular imports
@@ -5477,6 +5774,483 @@ async def generate_image(prompt: str, tool_context: ToolContext) -> dict:
         'detail': 'Image generated successfully. It will be attached to your final response automatically.',
     }
 
+${ enableComputerUse ? `
+# =====================================================================
+# Computer Use (browser agent) -- Gemini 3.5 Flash built-in computer_use
+# tool driven over a self-hosted headless Chromium (Playwright). Adapted
+# from the official reference impl (github.com/google-gemini/
+# computer-use-preview, Apache-2.0): same generate_content loop, action
+# dispatch, coordinate denormalization and keep-last-N screenshot trim.
+# Runs inside a background task (the loop routinely exceeds the inline
+# rendering deadline). Screenshots are published to Firestore for the
+# live-view page and stashed for the in-chat filmstrip.
+# =====================================================================
+_CU_VIEWPORT_W = 1440
+_CU_VIEWPORT_H = 900
+_CU_MAX_STEPS = 40
+_CU_KEEP_SHOTS = 3
+_CU_STEP_TIMEOUT_MS = 15000
+_CU_MAX_CHAT_SHOTS = 6
+
+_CU_KEY_MAP = {
+    "enter": "Enter", "return": "Enter", "tab": "Tab", "backspace": "Backspace",
+    "delete": "Delete", "escape": "Escape", "esc": "Escape", "space": "Space",
+    "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
+    "pageup": "PageUp", "pagedown": "PageDown", "home": "Home", "end": "End",
+    "ctrl": "Control", "control": "Control", "alt": "Alt", "shift": "Shift",
+    "meta": "Meta", "cmd": "Meta", "command": "Meta",
+}
+
+def _cu_denorm(v, size):
+    try:
+        return int(round((float(v) / 1000.0) * float(size)))
+    except Exception:
+        return 0
+
+def _cu_now_iso():
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+def _cu_session_doc(session_id):
+    import builtins
+    _fs = getattr(builtins, '_firestore_client', None)
+    _demo_id = os.environ.get("DEMO_ID", "")
+    if not _fs or not _demo_id:
+        return None
+    return _fs.collection(_demo_id + "_browser_sessions").document(session_id)
+
+async def _cu_publish(session_id, step, intent, url, status, shot_b64):
+    _ref = _cu_session_doc(session_id)
+    if _ref is None:
+        return
+    _doc = {
+        "session_id": session_id, "step": step, "intent": intent or "",
+        "url": url or "", "status": status, "updated_at": _cu_now_iso(),
+    }
+    if shot_b64 is not None:
+        _doc["screenshot_b64"] = shot_b64
+    try:
+        await asyncio.to_thread(_ref.set, _doc, merge=True)
+    except Exception:
+        pass
+
+async def _cu_await_confirmation(session_id, action_text, category, shot_b64):
+    # Human-in-the-loop: record a pending confirmation, then poll the same
+    # doc for the decision the user makes on the live-view page. Returns True
+    # only on explicit approval; anything else (reject/timeout/no backend) is
+    # treated as not approved so irreversible actions never run unattended.
+    _ref = _cu_session_doc(session_id)
+    if _ref is None:
+        return False
+    try:
+        _payload = {
+            "session_id": session_id, "status": "awaiting_confirmation",
+            "confirm_action": action_text or "", "confirm_category": category or "",
+            "confirm_decision": "", "updated_at": _cu_now_iso(),
+        }
+        if shot_b64 is not None:
+            _payload["screenshot_b64"] = shot_b64
+        await asyncio.to_thread(_ref.set, _payload, merge=True)
+    except Exception:
+        return False
+    for _i in range(150):
+        await asyncio.sleep(2)
+        try:
+            _snap = await asyncio.to_thread(_ref.get)
+            _d = _snap.to_dict() if (_snap and _snap.exists) else {}
+        except Exception:
+            _d = {}
+        _dec = (_d or {}).get("confirm_decision", "")
+        if _dec == "approved":
+            try:
+                await asyncio.to_thread(_ref.set, {"status": "working", "confirm_decision": ""}, merge=True)
+            except Exception:
+                pass
+            return True
+        if _dec == "rejected":
+            return False
+    return False
+
+def _cu_extract(candidate):
+    _fcs = []
+    _txt = []
+    try:
+        for _p in (candidate.content.parts or []):
+            if getattr(_p, "function_call", None):
+                _fcs.append(_p.function_call)
+            elif getattr(_p, "text", None) and not getattr(_p, "thought", False):
+                _txt.append(_p.text)
+    except Exception:
+        pass
+    return _fcs, (" ".join(_txt)).strip()
+
+def _cu_trim(history):
+    # Keep only the most recent _CU_KEEP_SHOTS screenshot turns to bound tokens.
+    _seen = 0
+    for _c in reversed(history):
+        try:
+            if getattr(_c, "role", "") == "user" and _c.parts and any(getattr(_p, "function_response", None) for _p in _c.parts):
+                _seen += 1
+                if _seen > _CU_KEEP_SHOTS:
+                    for _p in _c.parts:
+                        if getattr(_p, "function_response", None):
+                            _p.function_response.parts = None
+        except Exception:
+            pass
+
+async def _cu_dispatch(page, name, args):
+    # Execute a single computer-use action, returning the resulting page URL.
+    # Handles both the 3.5 and legacy 2.5 predefined-function naming and common
+    # argument key variants, since the exact schema varies by model version.
+    n = (name or "").lower()
+
+    def _num(*keys):
+        for _k in keys:
+            if _k in args and args[_k] is not None:
+                try:
+                    return float(args[_k])
+                except Exception:
+                    pass
+        return None
+
+    def _xy():
+        _cx = _num("x", "x_coordinate", "start_x")
+        _cy = _num("y", "y_coordinate", "start_y")
+        if _cx is None and "coordinate" in args:
+            try:
+                _c = args["coordinate"]
+                _cx = float(_c[0])
+                _cy = float(_c[1])
+            except Exception:
+                pass
+        if _cx is None or _cy is None:
+            return (None, None)
+        return (_cu_denorm(_cx, _CU_VIEWPORT_W), _cu_denorm(_cy, _CU_VIEWPORT_H))
+
+    try:
+        if "go_back" in n:
+            await page.go_back()
+        elif "go_forward" in n:
+            await page.go_forward()
+        elif "navigate" in n or n in ("open_web_browser", "open_url", "goto"):
+            _url = args.get("url") or args.get("website") or ""
+            if _url:
+                if "://" not in _url:
+                    _url = "https://" + _url
+                await page.goto(_url, wait_until="load", timeout=_CU_STEP_TIMEOUT_MS)
+        elif n == "search":
+            # DuckDuckGo's HTML endpoint is automation-friendly (no CAPTCHA / bot wall,
+            # unlike google.com), so searches land straight on parseable results.
+            _q = args.get("query") or args.get("text") or ""
+            await page.goto("https://duckduckgo.com/html/?q=" + str(_q).replace(" ", "+"), timeout=_CU_STEP_TIMEOUT_MS)
+        elif "scroll" in n:
+            _x, _y = _xy()
+            _dir = str(args.get("direction") or "down").lower()
+            _mag = _num("magnitude", "scroll_amount", "distance", "scroll_y")
+            _amt = int(_mag) if _mag else int(_CU_VIEWPORT_H * 0.8)
+            if _dir in ("up", "left"):
+                _amt = -abs(_amt)
+            if _x is not None:
+                await page.mouse.move(_x, _y)
+            if _dir in ("left", "right"):
+                await page.mouse.wheel(_amt, 0)
+            else:
+                await page.mouse.wheel(0, _amt)
+        elif "drag" in n:
+            _x, _y = _xy()
+            _dx = _num("destination_x", "x2", "end_x")
+            _dy = _num("destination_y", "y2", "end_y")
+            if _x is not None and _dx is not None:
+                await page.mouse.move(_x, _y)
+                await page.mouse.down()
+                await page.mouse.move(_cu_denorm(_dx, _CU_VIEWPORT_W), _cu_denorm(_dy, _CU_VIEWPORT_H))
+                await page.mouse.up()
+        elif "hover" in n or n in ("move", "mouse_move"):
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.move(_x, _y)
+        elif "double_click" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y, click_count=2)
+        elif "triple_click" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y, click_count=3)
+        elif "right_click" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y, button="right")
+        elif "middle_click" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y, button="middle")
+        elif "click" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y)
+        elif "type" in n:
+            _x, _y = _xy()
+            if _x is not None:
+                await page.mouse.click(_x, _y)
+                if args.get("clear_before_typing") or args.get("clear"):
+                    await page.keyboard.press("Control+A")
+                    await page.keyboard.press("Delete")
+            _txt = args.get("text") or args.get("value") or ""
+            await page.keyboard.type(str(_txt))
+            if args.get("press_enter") or args.get("enter"):
+                await page.keyboard.press("Enter")
+        elif "key" in n or "hotkey" in n:
+            _keys = args.get("keys") or args.get("key") or args.get("key_combination") or args.get("text") or ""
+            _seq = _keys if isinstance(_keys, list) else str(_keys).replace("+", " ").split()
+            _mapped = [_CU_KEY_MAP.get(str(_k).lower(), str(_k)) for _k in _seq]
+            if len(_mapped) > 1:
+                await page.keyboard.press("+".join(_mapped))
+            elif _mapped:
+                await page.keyboard.press(_mapped[0])
+        elif "wait" in n:
+            await asyncio.sleep(1.0)
+        else:
+            pass
+    except Exception:
+        pass
+
+    try:
+        await page.wait_for_load_state(timeout=5000)
+    except Exception:
+        pass
+    try:
+        return page.url
+    except Exception:
+        return ""
+
+async def start_browser_session() -> dict:
+    """Reserve a browser live-view session BEFORE running computer_use_browse.
+
+    Call this FIRST for an inline browser task so you can show the user a clickable
+    live-view link WHILE the browser runs (computer_use_browse blocks until it finishes,
+    so the link must be shown before you call it). Returns instantly (no browser launch).
+
+    After calling this: if it returns a non-empty live_view_url, show it to the user as a
+    Markdown link, then call computer_use_browse(..., session_id=<the returned session_id>)
+    so the live view matches the actual browser session.
+
+    Returns:
+        dict with session_id and live_view_url (live_view_url is empty when no Data Viewer
+        is deployed - in that case just call computer_use_browse directly).
+    """
+    _sid = uuid.uuid4().hex[:12]
+    _viewer = os.environ.get("DATA_VIEWER_URL", "")
+    _live = (_viewer.rstrip("/") + "/browser-view?session=" + _sid) if _viewer else ""
+    try:
+        await _cu_publish(_sid, 0, "Preparing browser session...", "", "starting", None)
+    except Exception:
+        pass
+    return {"session_id": _sid, "live_view_url": _live}
+
+async def computer_use_browse(goal: str, start_url: str, tool_context: ToolContext, session_id: str = "") -> dict:
+    """Autonomously operates a real web browser to accomplish a goal on sites that have no API.
+
+    Uses Gemini's built-in Computer Use capability over a headless Chromium browser: it
+    looks at a screenshot, decides a UI action (click/type/navigate/scroll), executes it,
+    and repeats until the goal is met. Ideal for legacy portals, competitor public pages,
+    government/regulatory sites, and internal web apps that expose no API/MCP.
+
+    Can be called inline (short, capped) or from a background task for longer jobs.
+
+    Args:
+        goal: Natural-language description of what to accomplish. Be specific about what
+              information to extract or what actions to take.
+        start_url: The URL to open first. For a web search, pass a DuckDuckGo results URL
+              like 'https://duckduckgo.com/html/?q=<terms>' (avoid google.com - it CAPTCHAs
+              automated browsers), or a direct source URL. Defaults to a search page.
+        session_id: OPTIONAL. Pass the session_id returned by start_browser_session so the
+              live-view link you already showed the user matches this run. Leave empty to
+              auto-assign (background tasks derive it from the task id automatically).
+
+    Returns:
+        dict with status, steps_taken, live_view_url, session_id, and result_summary.
+    """
+    import base64
+    import logging
+    from google.genai import types
+    _log = logging.getLogger("computer_use")
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    # Session id precedence: explicit arg (inline 2-step live view) > background task id
+    # (worker session is named "task-<task_id>") > random. This keeps the live-view URL
+    # consistent with whatever link was already shown to the user.
+    _sid_ctx = ""
+    try:
+        _sid_ctx = getattr(getattr(tool_context, "session", None), "id", "") or ""
+    except Exception:
+        _sid_ctx = ""
+    _is_inline = not _sid_ctx.startswith("task-")
+    if session_id and session_id.strip():
+        session_id = session_id.strip()
+    elif _sid_ctx.startswith("task-"):
+        session_id = _sid_ctx[len("task-"):]
+    else:
+        session_id = uuid.uuid4().hex[:12]
+    _viewer = os.environ.get("DATA_VIEWER_URL", "")
+    live_view_url = (_viewer.rstrip("/") + "/browser-view?session=" + session_id) if _viewer else ""
+
+    try:
+        from playwright.async_api import async_playwright
+    except Exception as _imp:
+        return {"status": "error", "detail": "Playwright is not installed in this environment: " + str(_imp)}
+
+    client = genai_client.Client(vertexai=True, location=location, project=project)
+    model = os.environ.get("AGENT_MODEL", "gemini-3.5-flash")
+    cfg = types.GenerateContentConfig(
+        temperature=1.0, top_p=0.95, top_k=40, max_output_tokens=8192,
+        tools=[types.Tool(computer_use=types.ComputerUse(environment=types.Environment.ENVIRONMENT_BROWSER))],
+    )
+
+    # Inline calls must finish inside GE's chat render window, so cap steps and
+    # wall-clock tightly; background calls (via a task) can run much longer.
+    import time as _time
+    _max_steps = 20 if _is_inline else _CU_MAX_STEPS
+    _wall_budget = 240.0 if _is_inline else 600.0
+    _deadline = _time.monotonic() + _wall_budget
+
+    _shots_for_chat = []
+    _steps = 0
+    _final = ""
+    _status = "completed"
+    _pw = None
+    _browser = None
+    try:
+        _pw = await async_playwright().start()
+        _browser = await _pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-extensions", "--disable-plugins",
+                  "--disable-blink-features=AutomationControlled"],
+        )
+        # Look like a normal desktop Chrome (headless UA + navigator.webdriver are the
+        # biggest bot-detection giveaways that trigger CAPTCHAs).
+        _ctx = await _browser.new_context(
+            viewport={"width": _CU_VIEWPORT_W, "height": _CU_VIEWPORT_H},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            locale="en-US",
+        )
+        page = await _ctx.new_page()
+
+        _start = start_url or "https://duckduckgo.com/"
+        if "://" not in _start:
+            _start = "https://" + _start
+        try:
+            await page.goto(_start, wait_until="load", timeout=_CU_STEP_TIMEOUT_MS)
+        except Exception:
+            pass
+
+        _shot = await page.screenshot(type="png")
+        _jpg = await page.screenshot(type="jpeg", quality=60)
+        await _cu_publish(session_id, 0, "Opened " + _start, page.url, "working", base64.b64encode(_jpg).decode("ascii"))
+        history = [types.Content(role="user", parts=[
+            types.Part.from_text(text="Goal: " + (goal or "") + chr(10) + "Complete this task in the browser. When finished, summarize what you found or did."),
+            types.Part.from_bytes(data=_shot, mime_type="image/png"),
+        ])]
+
+        while _steps < _max_steps and _time.monotonic() < _deadline:
+            try:
+                _resp = await asyncio.to_thread(client.models.generate_content, model=model, contents=history, config=cfg)
+            except Exception as _ge:
+                _final = "Model call failed: " + str(_ge)[:300]
+                _status = "failed"
+                break
+            if not _resp.candidates:
+                _final = "The model returned no response."
+                _status = "failed"
+                break
+            _cand = _resp.candidates[0]
+            history.append(_cand.content)
+            _fcs, _reason = _cu_extract(_cand)
+            if not _fcs:
+                _final = _reason or "Task complete."
+                break
+            _fr_parts = []
+            _abort = False
+            for _fc in _fcs:
+                _a = dict(_fc.args) if _fc.args else {}
+                _extra = {}
+                _safety = _a.get("safety_decision")
+                _sdec = _safety.get("decision") if hasattr(_safety, "get") else None
+                if _sdec == "require_confirmation":
+                    _pre = base64.b64encode(await page.screenshot(type="jpeg", quality=60)).decode("ascii")
+                    try:
+                        _act = _safety.get("explanation") or _safety.get("action") or _fc.name
+                        _cat = _safety.get("category") or ""
+                    except Exception:
+                        _act = _fc.name
+                        _cat = ""
+                    _ok = await _cu_await_confirmation(session_id, str(_act), str(_cat), _pre)
+                    if not _ok:
+                        _final = "A browser action required user confirmation and was not approved: " + str(_act)
+                        _status = "cancelled"
+                        _abort = True
+                        break
+                    _extra["safety_acknowledgement"] = "true"
+                _url = await _cu_dispatch(page, _fc.name, _a)
+                _steps += 1
+                _shot = await page.screenshot(type="png")
+                # JPEG copy for the viewer + in-chat filmstrip (small enough for the
+                # Firestore 1MB doc limit and light in the chat artifact).
+                _jpg = await page.screenshot(type="jpeg", quality=60)
+                await _cu_publish(session_id, _steps, (_reason or _fc.name)[:200], _url, "working", base64.b64encode(_jpg).decode("ascii"))
+                _shots_for_chat.append(_jpg)
+                if len(_shots_for_chat) > _CU_MAX_CHAT_SHOTS:
+                    del _shots_for_chat[1]  # keep the first frame + the most recent ones
+                _resp_dict = {"url": _url}
+                _resp_dict.update(_extra)
+                _fr_parts.append(types.Part(function_response=types.FunctionResponse(
+                    name=_fc.name,
+                    response=_resp_dict,
+                    parts=[types.FunctionResponsePart(inline_data=types.FunctionResponseBlob(mime_type="image/png", data=_shot))],
+                )))
+            if _abort:
+                break
+            history.append(types.Content(role="user", parts=_fr_parts))
+            _cu_trim(history)
+
+        if not _final and (_steps >= _max_steps or _time.monotonic() >= _deadline):
+            _final = ("Reached the browser step/time limit at " + str(_steps) + " steps. "
+                      + ("For deeper browsing, ask to run this as a background task." if _is_inline else "Partial progress may have been made."))
+            _status = "partial"
+    except Exception as _e:
+        _final = "Browser session error: " + str(_e)[:300]
+        _status = "failed"
+    finally:
+        try:
+            if _browser:
+                await _browser.close()
+        except Exception:
+            pass
+        try:
+            if _pw:
+                await _pw.stop()
+        except Exception:
+            pass
+
+    try:
+        _lastb64 = base64.b64encode(_shots_for_chat[-1]).decode("ascii") if _shots_for_chat else None
+    except Exception:
+        _lastb64 = None
+    await _cu_publish(session_id, _steps, _final[:200], "", _status, _lastb64)
+
+    if _shots_for_chat:
+        tool_context.session.state['pending_browser_screenshots'] = _shots_for_chat
+
+    return {
+        "status": _status,
+        "steps_taken": _steps,
+        "live_view_url": live_view_url,
+        "session_id": session_id,
+        "result_summary": _final,
+        "detail": "Browser automation finished (status: " + _status + "). Screenshots are attached; the full session can be watched at live_view_url.",
+    }
+` : '' }
+
 def get_custom_mcp_toolsets():
 ${ (params.importedMcpList && params.importedMcpList.filter(m => m.type !== 'remote').length > 0) ? `
     """Returns a list of McpToolset objects for all imported custom MCP servers."""
@@ -5751,12 +6525,26 @@ def submit_background_task_now(task_name: str, task_description: str, task_promp
 
 
 
-    return {
+    _ret = {
         "status": "submitted",
         "ticket-id": _task_id,
         "task_name": task_name,
         "message": "Task registered. Processing started in background.",
     }
+    # Computer Use tasks: precompute the live-view URL (session id == task id, see
+    # computer_use_browse) so the agent can surface a "Watch Browser Session" link
+    # immediately, while the browser loop is still running.
+    try:
+        if "computer_use_browse" in (task_prompt or ""):
+            _vurl = os.environ.get("DATA_VIEWER_URL", "")
+            if _vurl:
+                _live = _vurl.rstrip("/") + "/browser-view?session=" + _task_id
+                _ret["live_view_url"] = _live
+                _ret["message"] = ("Task registered. A browser session is starting. "
+                                   "You MUST show the user this live-view link so they can watch it: " + _live)
+    except Exception:
+        pass
+    return _ret
 
 background_task_tool = LongRunningFunctionTool(func=register_background_task)
 
@@ -8279,6 +9067,7 @@ PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
 maps_toolset = tools.get_maps_mcp_toolset()
 bigquery_toolset = tools.get_bigquery_mcp_toolset()
 firestore_toolset = tools.get_firestore_mcp_toolset()
+knowledge_catalog_toolset = tools.get_knowledge_catalog_mcp_toolset()
 custom_mcp_toolsets = tools.get_custom_mcp_toolsets()
 ${ (params.importedMcpList || []).some(m => m.type === 'remote' && m.auth_type === 'oauth2_slack') ? `slack_mcp_toolset = tools.get_slack_mcp_toolset()` : `slack_mcp_toolset = None` }
 
@@ -8459,10 +9248,16 @@ Help the user answer questions by strategically combining insights from BigQuery
 
 1. **BigQuery Toolset**: Access and modify data in the [PROJECT_ID].[DATASET_ID] dataset.
    - **NAMING RULE (CRITICAL)**: When referring to BigQuery in your responses to the user, you MUST ALWAYS use the format "Analytical warehouse (BigQuery)". NEVER use the bare product name "BigQuery" alone.
-   - Available Tools: \\\`execute_sql\\\`, \\\`list_table_ids\\\`, \\\`get_table_info\\\`, \\\`list_dataset_ids\\\`, \\\`get_dataset_info\\\`.
+   - Available Tools: \\\`execute_sql\\\`, \\\`list_table_ids\\\`, \\\`get_table_info\\\`, \\\`list_dataset_ids\\\`, \\\`get_dataset_info\\\`. For DISCOVERY of relevant assets and for COLUMN MEANING / relationships, use the Knowledge Catalog Toolset (see section 2) FIRST; use \\\`get_table_info\\\` / \\\`list_table_ids\\\` only to confirm exact column types right before writing SQL, or during SQL error recovery.
    - **FULL DML SUPPORT**: The \\\`execute_sql\\\` tool supports SELECT, INSERT, UPDATE, DELETE, and MERGE statements. You can both read and write data in BigQuery.
    - **BIGQUERY WRITE CONFIRMATION (CRITICAL)**: Whenever a user asks to INSERT, UPDATE, DELETE, or MERGE data in BigQuery, you MUST follow the same confirmation workflow as Firestore: present a confirmation card with A2UI \u003ca2ui-json\u003e tags showing the proposed SQL statement and affected data, then wait for explicit user approval before executing.
    - DATASET ISOLATION (CRITICAL): You MUST ONLY access the \\\`[DATASET_ID]\\\` dataset. DO NOT use \\\`list_dataset_ids\\\` to discover other datasets. DO NOT query any dataset other than \\\`[DATASET_ID]\\\` (except public datasets when explicitly instructed). If a user asks about data not in \\\`[DATASET_ID]\\\`, inform them that only this dataset is available for this demo.
+
+2. **Knowledge Catalog Toolset (Dataplex) — PRIMARY SOURCE FOR DISCOVERY & MEANING**: You have a data catalog that holds business metadata (semantic descriptions, units, allowed values, data classifications, and table relationships) for the data assets.
+   - Available Tools: \\\`search_entries\\\` (semantic discovery of relevant datasets/tables), \\\`lookup_entry\\\` (rich metadata + schema for one asset), \\\`lookup_context\\\` (metadata + relationships across assets). These are read-only.
+   - **METADATA-FIRST RULE (MUST)**: For ANY exploratory or discovery question — e.g. "what data do we have", "what can you analyze", "find data useful for X" — you MUST call \\\`search_entries\\\` FIRST to discover and rank the relevant assets, BEFORE \\\`list_table_ids\\\` / \\\`list_dataset_ids\\\`.
+   - **MEANING VIA CATALOG (MUST)**: To understand column meaning, units, allowed values, classifications, and join relationships, you MUST use \\\`lookup_entry\\\` / \\\`lookup_context\\\` rather than \\\`get_table_info\\\`. Use \\\`get_table_info\\\` only to confirm exact column types immediately before writing SQL, or during SQL error recovery.
+   - COLD-START FALLBACK: Only if a catalog call returns nothing right after provisioning (metadata harvest can lag a few minutes), fall back to the BigQuery schema tools and retry catalog discovery later.
 [PUBLIC_DATASET_INFO]
 
 [GENERATED_SYSTEM_INSTRUCTION]
@@ -8470,11 +9265,11 @@ Help the user answer questions by strategically combining insights from BigQuery
 - REFERENCE DATE (DEMO DATA ONLY): The synthetic demo data (BigQuery/Firestore) is anchored to [REFERENCE_DATE]. Use [REFERENCE_DATE] ONLY when querying or reasoning about the demo dataset (e.g., 'sales last month' in BigQuery/Firestore).
 - ACTUAL CURRENT DATE (REAL-WORLD / WORKSPACE ACTIONS): Today's real date is [CURRENT_REAL_DATE]. You MUST use [CURRENT_REAL_DATE] for any real-world or Google Workspace action (creating Calendar events, drafting Gmail, scheduling tasks). When the user says 'today', 'tomorrow', or 'at 2pm today' for such an action, resolve the date against [CURRENT_REAL_DATE], NOT the demo reference date.
 
-2. **Maps Toolset**: Real-world location analysis.
+3. **Maps Toolset**: Real-world location analysis.
    - Available Tools: \\\`compute_routes\\\`, \\\`get_place\\\`, \\\`search_places\\\`, \\\`geocode\\\`, \\\`reverse_geocode\\\`.
    - IMPORTANT: There is NO weather tool. Do not hallucinate or attempt to use weather services.
 
-3. **Firestore Toolset**: Read and update live operational status.
+4. **Firestore Toolset**: Read and update live operational status.
    - **NAMING RULE (CRITICAL)**: When referring to Firestore in your responses to the user, you MUST ALWAYS use the format "Operational database (Firestore)". NEVER use the bare product name "Firestore" alone.
    - FIRESTORE ISOLATION (CRITICAL): You MUST ONLY access the \\\`[COLLECTION_ID]\\\` collection. DO NOT read or write to any other collection. If a user asks to access data in another collection, inform them that only this collection is available for this demo.
    - FIRESTORE MCP PATH FORMAT (CRITICAL - MUST FOLLOW EXACTLY):
@@ -8601,14 +9396,14 @@ CRITICAL OPERATIONAL RULES:
     * EMPTY (NON-ERROR) RESULTS ARE NOT A FAILURE TO RETRY AROUND: A search, lookup, or list tool that returns successfully but with NO matching results (or only results you already have) has NOT failed. You may retry such a search with adjusted parameters AT MOST ONCE. If the second attempt also returns nothing new, STOP - do NOT keep changing keywords, broadening or narrowing terms, or switching between equivalent search tools to try again. Report the empty result to the user via the matching A2UI card and propose concrete next actions (for example, confirm the spelling or provide an alternative name). NEVER enter a loop of repeated no-result searches.
     * THIS DOES NOT LIMIT LEGITIMATE ITERATION: Calls that each make real progress are expected and allowed - paginating through results with a page token, reading distinct files or records, or running distinct queries that each return new data. The stop condition above applies ONLY to repeated searches that keep yielding no new information.
 - DATA DISCOVERY & ACCURACY (HIGHEST PRIORITY):
-    * ADAPTIVE DISCOVERY: Use \\\`get_table_info\\\` only when necessary to confirm schemas for a specific query. 
+    * ADAPTIVE DISCOVERY: The Knowledge Catalog (\\\`search_entries\\\` / \\\`lookup_entry\\\` / \\\`lookup_context\\\`) is the PRIMARY source for discovering assets and understanding column meaning/relationships. Use \\\`get_table_info\\\` only when necessary to confirm exact column types for a specific query, or during SQL error recovery.
     * DO NOT ASSUME column names (e.g., 'region', 'category', 'prefecture') exist without checking. Hallucinating columns causes fatal errors.
     * SQL ERROR RECOVERY: If a SQL query fails, output a status message, re-run \\\`get_table_info\\\` to verify schema, explore values with \\\`SELECT DISTINCT\\\`, and fix the query yourself. Be relentless in finding the correct data.
     * VALUE EXPLORATION: For unfamiliar columns, run \\\`SELECT DISTINCT column LIMIT 10\\\` to identify valid values.
     * LATEST-SNAPSHOT AGGREGATION (CRITICAL): When aggregating a time-series STATE table (inventory levels, statuses, balances) across entities, you MUST take each entity's OWN latest record — e.g. \\\`QUALIFY ROW_NUMBER() OVER (PARTITION BY entity_id ORDER BY record_date DESC) = 1\\\` — and only then compare against thresholds. Filtering the whole table by a single global MAX(date) silently DROPS entities whose latest record has a different date, producing false "no issues found" answers.
     * ZERO-RESULT SANITY CHECK (CRITICAL): If an anomaly/exception-detection query returns ZERO rows, do NOT immediately declare "no issues". First re-check your aggregation granularity ONCE (especially date filters — switch to the per-entity latest-record pattern above). Only after this verification may you report a confident zero. A premature "everything is fine" that is contradicted by a later drill-down destroys user trust.
     * HUMAN-READABLE OUTPUT (CRITICAL): Regardless of the underlying schema design (star, snowflake, normalized, or any other pattern), you MUST ensure every column in your final output is human-interpretable. Specifically:
-      - Before writing any query, inspect the schema (via \\\`get_table_info\\\` or \\\`list_table_ids\\\`) to identify which columns are foreign keys, surrogate keys, or coded values that reference other tables.
+      - Before writing any query, identify which columns are foreign keys, surrogate keys, or coded values that reference other tables — preferably via \\\`lookup_entry\\\` / \\\`lookup_context\\\` (catalog relationships), or via \\\`get_table_info\\\` when confirming exact types.
       - JOIN with all relevant lookup/dimension/reference tables so that the output displays descriptive names, labels, or descriptions — never raw surrogate keys (e.g., numeric IDs), internal codes (e.g., "JP-13", "CAT_003"), or enum values when a human-readable equivalent exists in another table.
       - This applies universally: person names instead of person IDs, product names instead of product codes, region/city names instead of location codes, category labels instead of category IDs, status descriptions instead of status flags, and so on.
       - When multiple reference tables are relevant, join ALL of them. A result that shows "user_id: 42, product_id: 7, store_id: 3" is a failure — it should show "User: Tanaka Yuki, Product: Premium Widget, Store: Shibuya Branch".
@@ -8684,6 +9479,57 @@ if _viewer_url:
         "[View Task Status](" + _viewer_url + ")\\n\\n"
         "--- END DATA VIEWER INTEGRATION ---\\n"
     )
+${ enableComputerUse ? `
+# --- Computer Use (browser agent) routing ---
+instruction += (
+    "\\n\\n--- COMPUTER USE (BROWSER AGENT) ---\\n"
+    "You have a real web browser tool (computer_use_browse) to accomplish tasks on websites "
+    "that have NO API or MCP tool: legacy/supplier/partner portals, competitor public pages, "
+    "government or regulatory sites, public data sources, and internal web apps. Use it for "
+    "'search google.com and ...', 'go to <site> and ...', 'check the price/status on "
+    "<website>', web research, form filling, and cross-site knowledge work.\\n"
+    "CRITICAL: the browser tool is REAL and available. NEVER claim you cannot access external "
+    "sites, and NEVER say live crawling is blocked/restricted by a secure or isolated "
+    "environment - that is false. When the user asks to look something up on the web, USE the "
+    "browser instead of answering from internal data or refusing.\\n"
+    "SEARCH & CAPTCHA TIPS (IMPORTANT - saves steps):\\n"
+    "- Do NOT open google.com and type in its search box: Google shows a CAPTCHA / bot wall to "
+    "automated browsers and wastes many steps. Instead, set start_url so the browser opens "
+    "STRAIGHT onto results or the source: use a DuckDuckGo results URL "
+    "'https://duckduckgo.com/html/?q=<url-encoded terms>' (automation-friendly, no CAPTCHA), or "
+    "navigate directly to the known authoritative site when you can guess it.\\n"
+    "- If a page shows a CAPTCHA or 'unusual traffic' / bot check, switch to the DuckDuckGo "
+    "results URL ONCE and continue. Do NOT keep switching between search engines - that is what "
+    "burns the step budget.\\n"
+    "- Put the full query directly in the start_url so you land on results in 1 step instead of "
+    "clicking into a search box.\\n"
+    "HOW TO CHOOSE (INLINE vs BACKGROUND):\\n"
+    "- QUICK look-ups (a single site, a few clicks - e.g. 'search google for today's USD/JPY', "
+    "'check the weather on <site>'): run INLINE using this EXACT 2-step sequence so the user can "
+    "watch it live:\\n"
+    "    STEP 1 - call start_browser_session (no arguments). It returns session_id and "
+    "live_view_url INSTANTLY.\\n"
+    "    STEP 2 - if live_view_url is non-empty, output a short progress line that INCLUDES the "
+    "live-view Markdown link, e.g. 'Opening the browser... Watch it live: "
+    "[Watch Browser Session](<live_view_url>)'. Then call computer_use_browse with the goal, the "
+    "start_url, AND session_id set to the session_id from STEP 1 (so the link matches the run). "
+    "If live_view_url is empty (no Data Viewer deployed), skip the link and just call "
+    "computer_use_browse - the browser screenshots still stream into THIS chat automatically.\\n"
+    "  You MUST show the link BEFORE calling computer_use_browse, because that call blocks until "
+    "the browser finishes - showing it after is too late to watch live. The result_summary is "
+    "your answer. Inline is capped (~12 steps); if it returns status 'partial', offer to re-run "
+    "as a background task.\\n"
+    "- LONG or multi-page jobs (deep audits, many pages, monitoring): use register_background_task "
+    "with a task_prompt that instructs the background agent to use computer_use_browse. Its result "
+    "includes a live_view_url; surface it the same Markdown-link way.\\n"
+    "LIVE-VIEW LINK RULES: always render it as a Markdown link on its own line - "
+    "[Watch Browser Session](<live_view_url>) - copying the URL from the tool result verbatim. "
+    "NEVER invent the URL, NEVER output a bare URL, and NEVER use an A2UI/openUrl button (openUrl "
+    "is not supported in A2UI v0.8) - Markdown link text only. If there is no live_view_url, rely "
+    "on the in-chat screenshots.\\n"
+    "--- END COMPUTER USE ---\\n"
+)
+` : '' }
 
 # === EXECUTION & RESULT PRESENTATION REMINDER (must be last for recency bias) ===
 instruction += (
@@ -8782,6 +9628,23 @@ async def inject_image_callback(callback_context: adk_callback_context.CallbackC
             llm_response.custom_metadata = {}
         llm_response.custom_metadata["a2a:response"] = True
 
+    # Computer Use filmstrip: attach the key browser screenshots (JPEG list)
+    # captured during a computer_use_browse run so the user sees what happened
+    # directly in the chat (same mechanism as generate_image). This is the
+    # fallback view when the Data Viewer live-view page cannot be deployed.
+    browser_shots = callback_context.session.state.pop('pending_browser_screenshots', None)
+    if browser_shots and llm_response and llm_response.content:
+        for _bshot in browser_shots:
+            try:
+                llm_response.content.parts.append(
+                    types.Part.from_bytes(data=_bshot, mime_type="image/jpeg")
+                )
+            except Exception:
+                pass
+        if not hasattr(llm_response, 'custom_metadata') or llm_response.custom_metadata is None:
+            llm_response.custom_metadata = {}
+        llm_response.custom_metadata["a2a:response"] = True
+
     return None # Allow other callbacks to run
 
 async def a2ui_metadata_callback(callback_context: adk_callback_context.CallbackContext, llm_response: adk_llm_response.LlmResponse) -> adk_llm_response.LlmResponse | None:
@@ -8873,7 +9736,7 @@ def _strip_part_metadata(callback_context, llm_request):
     return None
 
 # --- Shared tools list ---
-_all_tools = [t for t in ${ enableWorkspaceMcp ? `[maps_toolset, bigquery_toolset, firestore_toolset, tools.generate_image, slack_mcp_toolset] + custom_mcp_toolsets + [tools.get_gmail_mcp_toolset(), tools.get_drive_mcp_toolset(), tools.get_calendar_mcp_toolset(), tools.get_chat_mcp_toolset(), tools.get_people_mcp_toolset()]` : `[maps_toolset, bigquery_toolset, firestore_toolset, tools.generate_image, slack_mcp_toolset] + custom_mcp_toolsets` } if t is not None]
+_all_tools = [t for t in ${ enableWorkspaceMcp ? `[maps_toolset, bigquery_toolset, firestore_toolset, knowledge_catalog_toolset, tools.generate_image, slack_mcp_toolset] + custom_mcp_toolsets + [tools.get_gmail_mcp_toolset(), tools.get_drive_mcp_toolset(), tools.get_calendar_mcp_toolset(), tools.get_chat_mcp_toolset(), tools.get_people_mcp_toolset()]` : `[maps_toolset, bigquery_toolset, firestore_toolset, knowledge_catalog_toolset, tools.generate_image, slack_mcp_toolset] + custom_mcp_toolsets` } if t is not None]
 
 _all_tools.append(tools.write_operational_alert)
 _all_tools.append(tools.save_document_to_db)
@@ -8888,6 +9751,13 @@ _all_tools.append(tools.register_scheduled_task)
 _all_tools.append(tools.update_scheduled_task)
 _all_tools.append(tools.delete_scheduled_task)
 _all_tools.append(tools.run_scheduled_task_now)
+${ enableComputerUse ? `# Computer Use is available BOTH inline (root/deep_analysis, capped short) and in
+# background tasks. Inline is what makes the browser screenshots stream into the chat
+# via inject_image_callback (same path as generate_image). start_browser_session lets
+# the agent obtain a live-view link BEFORE the (blocking) inline browse call.
+_all_tools.append(tools.start_browser_session)
+_all_tools.append(tools.computer_use_browse)
+` : '' }
 
 # --- Agent Sandbox Code Executor (always enabled) ---
 _code_executor = AgentEngineSandboxCodeExecutor(
@@ -8974,7 +9844,7 @@ INLINE_TOOL_DEADLINE = _itb_contextvars.ContextVar('inline_tool_deadline', defau
 # inline result (confirmed: image at +74s -> overran 115s). Blocking it after
 # this earlier cutoff reserves time for the headline compute + report synthesis.
 INLINE_IMAGE_DEADLINE = _itb_contextvars.ContextVar('inline_image_deadline', default=None)
-_INLINE_GATE_EXEMPT_TOOLS = frozenset(('transfer_to_agent', 'register_background_task'))
+_INLINE_GATE_EXEMPT_TOOLS = frozenset(('transfer_to_agent', 'register_background_task', 'computer_use_browse', 'start_browser_session'))
 
 def _inline_tool_budget_gate(tool, args, tool_context):
     """Skip the tool call once the inline wall-clock budget is exhausted."""
@@ -10201,7 +11071,18 @@ EXECUTION RULES:
 4. Do NOT transfer to any other agent — you are standalone.
 5. Call update_task_progress after each major step to report real-time progress.
 6. Your final response is stored as result_summary in Firestore. Make it comprehensive.
-
+${ enableComputerUse ? `
+--- COMPUTER USE (BROWSER AGENT) ---
+When the task_prompt asks you to browse a website, operate a portal, or otherwise use
+computer_use_browse:
+1. Call computer_use_browse with a clear goal and the start_url from the task_prompt.
+2. As your FIRST update_task_progress log entry, include the live_view_url it returns so
+   the user can watch the session, e.g. "Live view: <url>".
+3. computer_use_browse handles the full multi-step browser loop and safety confirmations
+   internally; call it ONCE per browsing objective, then use its result_summary.
+4. Fold the returned result_summary (and any extracted data) into your final answer, and
+   persist structured results to BigQuery/Firestore when the task_prompt asks for it.
+` : '' }
 --- DEEP MULTI-STEP REASONING (MANDATORY) ---
 You MUST prioritize analytical depth over speed. Your analysis must be:
 
@@ -15396,7 +16277,7 @@ EOF
     SELECTED_LOC="\${APP_LOCS[0]}"
     echo "✅ Found exactly one Gemini Enterprise app ($SELECTED_APP_ID). Automating registration..."
 
-    REG_OUTPUT=$(python3 register_agent.py "$SELECTED_LOC" "$PROJECT_NUMBER" "$SELECTED_LOC" "$SELECTED_APP_ID" "$TOKEN" "${dirName}" "$SERVICE_URL/a2a/app" '${safeShortName}' '${safeSummary}' "$AUTH_ID")
+    REG_OUTPUT=$(python3 register_agent.py "$SELECTED_LOC" "$PROJECT_NUMBER" "$SELECTED_LOC" "$SELECTED_APP_ID" "$TOKEN" "${dirName}" "$SERVICE_URL/a2a/app" "\$AGENT_DISPLAY_NAME" '${safeSummary}' "$AUTH_ID")
     echo "$REG_OUTPUT"
     AGENT_ID=$(echo "$REG_OUTPUT" | grep "AGENT_ID:" | cut -d':' -f2)
     rm register_agent.py
@@ -15425,7 +16306,7 @@ EOF
       
       echo "✅ Selected app: \${APP_DISPLAY_NAMES[\$CHOICE]}. Automating registration..."
       
-      REG_OUTPUT=$(python3 register_agent.py "\$SELECTED_LOC" "\$PROJECT_NUMBER" "\$SELECTED_LOC" "\$SELECTED_APP_ID" "\$TOKEN" "${dirName}" "\$SERVICE_URL/a2a/app" '${safeShortName}' '${safeSummary}' "\$AUTH_ID")
+      REG_OUTPUT=$(python3 register_agent.py "\$SELECTED_LOC" "\$PROJECT_NUMBER" "\$SELECTED_LOC" "\$SELECTED_APP_ID" "\$TOKEN" "${dirName}" "\$SERVICE_URL/a2a/app" "\$AGENT_DISPLAY_NAME" '${safeSummary}' "\$AUTH_ID")
       echo "\$REG_OUTPUT"
       AGENT_ID=$(echo "\$REG_OUTPUT" | grep "AGENT_ID:" | cut -d':' -f2)
       rm register_agent.py
@@ -15446,7 +16327,7 @@ EOF
   echo ""
   echo "🌟 Agent Profile"
   echo "---------------------------------------------------------"
-  echo '🤖 Agent Name:   ${safeShortName} (${dirName})'
+  echo "🤖 Agent Name:   \$AGENT_DISPLAY_NAME (${dirName})"
   echo '📝 Description:  ${safeSummary}'
   echo ""
   echo "🗄️ Data Resources"
@@ -15770,6 +16651,35 @@ function callVertexAIWithSearch(prompt) {
  */
 function generateImageBase64WithRetry(prompt) {
   return executeWithRetry(() => generateImageBase64(prompt));
+}
+
+/**
+ * Deterministically injects the concrete table rows (file.imageRows) into the
+ * image prompt so the image model renders multiple distinct handwritten lines
+ * instead of collapsing to a single row. Falls back to the raw imagePrompt when
+ * fewer than 2 rows are supplied (e.g., non-tabular images).
+ * @param {object} file Image file spec with imagePrompt and optional imageColumns/imageRows.
+ * @returns {string} Final prompt to send to the image model.
+ */
+function buildImagePromptWithRows_(file) {
+  const rows = Array.isArray(file.imageRows)
+    ? file.imageRows.map(r => String(r).trim()).filter(r => r.length > 0)
+    : [];
+  if (rows.length < 2) {
+    console.warn(`[ImageGen-Pipeline] '${file.fileName}' has fewer than 2 imageRows; using raw imagePrompt (single-row risk).`);
+    return file.imagePrompt;
+  }
+  const columns = Array.isArray(file.imageColumns)
+    ? file.imageColumns.map(c => String(c).trim()).filter(c => c.length > 0)
+    : [];
+  const n = rows.length;
+  let block = `\n\nMANDATORY TABLE CONTENT - Render EXACTLY these ${n} handwritten rows inside the table grid, each as its own separate line. Do NOT merge, summarize, or omit any row. The table must visibly contain all ${n} rows.`;
+  if (columns.length > 0) {
+    block += `\nColumns: ${columns.join(' | ')}`;
+  }
+  rows.forEach((row, i) => { block += `\n${i + 1}) ${row}`; });
+  block += `\nThe table has exactly ${n} data rows.`;
+  return file.imagePrompt + block;
 }
 
 function generateImageBase64(prompt) {

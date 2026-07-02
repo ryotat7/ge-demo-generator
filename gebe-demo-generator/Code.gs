@@ -25,7 +25,7 @@ const CONFIG = {
   MODEL: SCRIPT_PROPS.getProperty('MODEL') || 'gemini-3.5-flash',
   MAX_RETRIES: 3,
   RETRY_DELAY_MS: 1000,
-  APP_VERSION: 'v1.0-public',
+  APP_VERSION: 'v1.1-public',
   MY_DEMOS_FOLDER: 'My Demos'
 };
 
@@ -136,6 +136,31 @@ function callVertexAI(prompt) {
  * Returns { base64Data, mimeType }.
  */
 function generateImageBase64WithRetry(prompt) { return executeWithRetry(function () { return generateImageBase64(prompt); }); }
+
+/**
+ * Deterministically injects the concrete table rows (spec.imageRows) into the
+ * image prompt so the image model renders multiple distinct lines instead of
+ * collapsing to a single row. Falls back to the raw imagePrompt when fewer than
+ * 2 rows are supplied (e.g., non-tabular scene images).
+ */
+function buildImagePromptWithRows_(spec) {
+  var rows = Array.isArray(spec.imageRows)
+    ? spec.imageRows.map(function (r) { return String(r).trim(); }).filter(function (r) { return r.length > 0; })
+    : [];
+  if (rows.length < 2) {
+    console.warn('[GEBE-ImageGen] ' + (spec.fileName || 'image') + ' has fewer than 2 imageRows; using raw imagePrompt.');
+    return spec.imagePrompt;
+  }
+  var columns = Array.isArray(spec.imageColumns)
+    ? spec.imageColumns.map(function (c) { return String(c).trim(); }).filter(function (c) { return c.length > 0; })
+    : [];
+  var n = rows.length;
+  var block = '\n\nMANDATORY TABLE CONTENT - Render EXACTLY these ' + n + ' rows inside the table grid, each as its own separate line. Do NOT merge, summarize, or omit any row. The table must visibly contain all ' + n + ' rows.';
+  if (columns.length > 0) { block += '\nColumns: ' + columns.join(' | '); }
+  rows.forEach(function (row, i) { block += '\n' + (i + 1) + ') ' + row; });
+  block += '\nThe table has exactly ' + n + ' data rows.';
+  return spec.imagePrompt + block;
+}
 
 function generateImageBase64(prompt) {
   const host = 'aiplatform.googleapis.com';
@@ -292,7 +317,13 @@ function planGEBEDemo(userGoal, options) {
     'Include at least one chart in the main document and at least one chart slide when those types are requested.\n' +
     '7. IMAGES: For any image file, write "imagePrompt" in ENGLISH (the model renders text literally), but ' +
     'any text DEPICTED inside the image must be written in the target language. Make image prompts detailed ' +
-    'and photorealistic or professional-infographic style.\n' +
+    'and photorealistic or professional-infographic style. If the image depicts a TABLE, FORM, RECEIPT, ' +
+    'ORDER SHEET, INVOICE or any document with line items, it MUST contain MULTIPLE rows (never a single ' +
+    'item row): add "imageColumns" (array of column headers in the target language) and "imageRows" ' +
+    '(array of 2-4 strings, each one full row with cell values joined by " | " in the same order as ' +
+    'imageColumns, in the target language, consistent with the spreadsheet/document data in this demo). ' +
+    'Describe ONLY the layout and style in "imagePrompt"; put the concrete line items in "imageRows" (the ' +
+    'system injects them into the final prompt). Omit imageColumns/imageRows for non-tabular images (e.g. scenes).\n' +
     '8. SIZE CEILING: At most 6 files total. Spreadsheets: at most 3 sheets. Presentations: at most 8 slides. ' +
     'Documents: at most 6 sections. At most 2 charts per document and 1 chart per slide.\n' +
     '9. AGENT DESIGNER PROMPT (MARKDOWN): Gemini Enterprise has an "Agent Designer" that builds an AI agent ' +
@@ -349,7 +380,8 @@ function planGEBEDemo(userGoal, options) {
     '      "sections": [ { "heading": "<heading>", "paragraphs": ["<para>", "<para>"] } ],\n' +
     '      "charts": [ { "title": "<t>", "type": "bar", "headers": ["Year","Value"], "data": [["2024",10]] } ] },\n' +
     '    { "type": "image", "fileName": "scene.jpg", "description": "<one line>",\n' +
-    '      "imagePrompt": "<detailed English prompt>" }\n' +
+    '      "imagePrompt": "<detailed English prompt>",\n' +
+    '      "imageColumns": ["<header>", "<header>"], "imageRows": ["<cell> | <cell>", "<cell> | <cell>"] }\n' +
     '  ]\n' +
     '}\n';
 
@@ -834,7 +866,7 @@ function buildChartImage_(chartSpec) {
 
 function createImageFile(folder, spec) {
   if (!spec.imagePrompt) throw new Error('Image file has no imagePrompt.');
-  const gen = generateImageBase64WithRetry(spec.imagePrompt);
+  const gen = generateImageBase64WithRetry(buildImagePromptWithRows_(spec));
   const ext = (gen.mimeType && gen.mimeType.indexOf('png') !== -1) ? '.png' : '.jpg';
   const name = baseName_(spec.fileName) + ext;
   const blob = Utilities.newBlob(Utilities.base64Decode(gen.base64Data), gen.mimeType, name);
